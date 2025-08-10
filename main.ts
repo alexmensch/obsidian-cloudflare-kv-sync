@@ -37,13 +37,14 @@ export default class CloudflareKVPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
-    this.addRibbonIcon("sync-to-cloudflare-kv", "Sync to Cloudflare KV", () => {
+
+    this.addRibbonIcon('cloud-upload', 'Sync to Cloudflare KV', () => {
       this.syncAllTaggedFiles();
     });
 
     this.addCommand({
-      id: "sync-all-tagged-files",
-      name: "Sync all files marked for KV sync",
+      id: 'sync-all-tagged-files',
+      name: 'Sync all marked files to Cloudflare KV',
       callback: () => {
         this.syncAllTaggedFiles();
       }
