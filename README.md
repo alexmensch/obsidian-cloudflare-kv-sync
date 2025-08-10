@@ -1,6 +1,6 @@
 # Obsidian Cloudflare KV Sync
 
-An Obsidian plugin that automatically syncs markdown files to Cloudflare KV storage based on Frontmatter configuration. Perfect for publishing content to static sites that pull from Cloudflare KV as a simple CMS.
+An Obsidian plugin that automatically syncs markdown files to Cloudflare KV storage based on Frontmatter configuration. Perfect for pulling content into a static site generator such as Eleventy, using Cloudflare KV as a bare bones CMS.
 
 ## Features
 
@@ -20,30 +20,25 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 4. Install and enable the plugin
 
 ### Manual Installation
-1. Download the latest release from GitHub
-2. Extract the files to your vault's `.obsidian/plugins/cloudflare-kv-sync/` folder
-3. Enable the plugin in Obsidian settings
-
-### Development Installation
 1. Clone this repository
 2. Run `npm install` to install dependencies
 3. Run `npm run build` to build the plugin
-4. Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugin folder
+4. Copy `main.js` and `manifest.json` to a new folder in your vault's plugin folder, eg. `.obsidian/plugins/cloudflare-kv-sync/`
 
 ## Setup
 
 ### 1. Cloudflare Configuration
 1. Create a Cloudflare KV namespace in your dashboard
+   - Note the namespace ID
 2. Create an API token with these permissions:
-   - **Account**: `Cloudflare Workers:Edit`
-   - **Zone Resources**: `Include - All zones` (or specific zone)
-3. Note your Account ID and Namespace ID
+   - **Account**: `Workers KV Storage:Edit`
+3. Note your Account ID
 
 ### 2. Plugin Configuration
 1. Go to Settings → Community Plugins → Cloudflare KV Sync
 2. Enter your:
-   - **Account ID**: Found in Cloudflare dashboard sidebar
-   - **Namespace ID**: Found in Workers → KV → Your namespace
+   - **Account ID**: Cloudflare Dashboard → three dots to right of account name → Copy account ID
+   - **Namespace ID**: Found in Storage & Databases → KV → Your namespace
    - **API Token**: The token you created above
 3. Configure optional settings:
    - **Sync Key**: Frontmatter key to check for sync flag (default: `kv_sync`)
@@ -82,17 +77,17 @@ title: My Blog Post
 This creates KV key: `writing/my-blog-post`
 
 ### Manual Controls
-- **Ribbon icon**: Click the cloud upload icon to sync all marked files
+- **Ribbon icon**: Click the cloud upload icon to sync all marked files.
 - **Command palette**: 
   - "Sync all files marked for KV sync"
   - "Sync current file to Cloudflare KV"
   - "Remove current file from Cloudflare KV"
 
 ### Sync Behavior
-- **Enable sync**: Set `kv_sync: true` in frontmatter
-- **Disable sync**: Set `kv_sync: false` or remove the key entirely
-- **Change collection**: Update the `collection` value - old keys are automatically removed
-- **Auto-cleanup**: Removing sync flag automatically removes the file from KV
+- **Enable sync**: Set `kv_sync: true` in frontmatter.
+- **Disable sync**: Set `kv_sync` to any value other than `true` or remove the key entirely.
+- **Change collection**: Update the `collection` value. Old keys are automatically removed.
+- **Auto-cleanup**: Removing sync flag automatically removes the file from KV.
 
 ## Configuration Options
 
@@ -148,10 +143,9 @@ This won't be synced to KV.
 ## Troubleshooting
 
 ### Common Issues
-- **Files not syncing**: Check that `kv_sync: true` and ID field exist in frontmatter
-- **API errors**: Verify your Account ID, Namespace ID, and API token
-- **Permission errors**: Ensure API token has Cloudflare Workers:Edit permission
-- **Old keys remaining**: Plugin automatically cleans up when collections change
+- **Files not syncing**: Check that your configured sync flag is set to `true` and your ID field exists in your Frontmatter.
+- **API errors**: Verify your Account ID, Namespace ID, and API token.
+- **Permission errors**: Ensure API token has `Workers KV Storage:Edit` permission.
 
 ### Debug Steps
 1. Check Obsidian console for error messages (Ctrl+Shift+I)
@@ -181,20 +175,7 @@ This will watch for changes and rebuild automatically.
 4. Add tests if applicable
 5. Submit a pull request
 
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Support
 
 - **GitHub Issues**: Report bugs or request features
 - **Discussions**: Ask questions or share use cases
-
-## Changelog
-
-### 0.1.0
-- Initial release
-- Automatic KV syncing based on frontmatter flags
-- Collection support for organized keys
-- Smart key management and cleanup
-- Configurable sync behavior
