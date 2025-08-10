@@ -1,0 +1,15 @@
+# Logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build outputs
+main.js
+*.js.map
+dist/
+
+# OS generated files
+.DS_Store
+.DS_Store?
