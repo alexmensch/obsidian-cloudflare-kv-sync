@@ -39,6 +39,11 @@ const DEFAULT_CACHE: CloudflareKVCache = {
   lastCleanup: 0
 }
 
+const DEFAULT_CACHE: CloudflareKVCache = {
+  fileKeyCache: {},
+  lastCleanup: 0
+}
+
 export default class CloudflareKVPlugin extends Plugin {
   settings: CloudflareKVSettings;
   private cache: CloudflareKVCache;
