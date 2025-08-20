@@ -22,6 +22,12 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 
 ### Manual Installation
 
+1. Download the latest release from GitHub
+2. Extract the files to your vault's `.obsidian/plugins/cloudflare-kv-sync/` folder
+3. Enable the plugin in Obsidian settings
+
+### Development Installation
+
 1. Clone this repository
 2. Run `npm install` to install dependencies
 3. Run `npm run build` to build the plugin
@@ -83,8 +89,8 @@ This creates KV key: `writing/my-blog-post`
 
 ### Manual Controls
 
-- **Ribbon icon**: Click the cloud upload icon to sync all marked files.
-- **Command palette**: 
+- **Ribbon icon**: Click the cloud upload icon to sync all marked files
+- **Command palette**:
   - "Sync all files marked for KV sync"
   - "Sync current file to Cloudflare KV"
   - "Remove current file from Cloudflare KV"
@@ -153,9 +159,10 @@ This won't be synced to KV.
 
 ### Common Issues
 
-- **Files not syncing**: Check that your configured sync flag is set to `true` and your ID field exists in your Frontmatter.
-- **API errors**: Verify your Account ID, Namespace ID, and API token.
-- **Permission errors**: Ensure API token has `Workers KV Storage:Edit` permission.
+- **Files not syncing**: Check that `kv_sync: true` and ID field exist in frontmatter
+- **API errors**: Verify your Account ID, Namespace ID, and API token
+- **Permission errors**: Ensure API token has Cloudflare Workers:Edit permission
+- **Old keys remaining**: Plugin automatically cleans up when collections change
 
 ### Debug Steps
 
