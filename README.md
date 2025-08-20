@@ -14,17 +14,20 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 ## Installation
 
 ### From Obsidian Community Plugins (Recommended)
+
 1. Open Obsidian Settings
 2. Go to Community Plugins and disable Safe Mode
 3. Click Browse and search for "Cloudflare KV Sync"
 4. Install and enable the plugin
 
 ### Manual Installation
+
 1. Download the latest release from GitHub
 2. Extract the files to your vault's `.obsidian/plugins/cloudflare-kv-sync/` folder
 3. Enable the plugin in Obsidian settings
 
 ### Development Installation
+
 1. Clone this repository
 2. Run `npm install` to install dependencies
 3. Run `npm run build` to build the plugin
@@ -33,6 +36,7 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 ## Setup
 
 ### 1. Cloudflare Configuration
+
 1. Create a Cloudflare KV namespace in your dashboard
 2. Create an API token with these permissions:
    - **Account**: `Cloudflare Workers:Edit`
@@ -40,6 +44,7 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 3. Note your Account ID and Namespace ID
 
 ### 2. Plugin Configuration
+
 1. Go to Settings → Community Plugins → Cloudflare KV Sync
 2. Enter your:
    - **Account ID**: Found in Cloudflare dashboard sidebar
@@ -53,6 +58,7 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 ## Usage
 
 ### Basic Syncing
+
 Add the sync flag to your markdown frontmatter:
 
 ```yaml
@@ -61,13 +67,13 @@ id: my-unique-post-id
 kv_sync: true
 title: My Amazing Post
 ---
-
 Your content here...
 ```
 
 The file will automatically sync to KV with key: `my-unique-post-id`
 
 ### Collection Organization
+
 Use collections to organize your KV keys:
 
 ```yaml
@@ -82,13 +88,15 @@ title: My Blog Post
 This creates KV key: `writing/my-blog-post`
 
 ### Manual Controls
+
 - **Ribbon icon**: Click the cloud upload icon to sync all marked files
-- **Command palette**: 
+- **Command palette**:
   - "Sync all files marked for KV sync"
   - "Sync current file to Cloudflare KV"
   - "Remove current file from Cloudflare KV"
 
 ### Sync Behavior
+
 - **Enable sync**: Set `kv_sync: true` in frontmatter
 - **Disable sync**: Set `kv_sync: false` or remove the key entirely
 - **Change collection**: Update the `collection` value - old keys are automatically removed
@@ -96,16 +104,17 @@ This creates KV key: `writing/my-blog-post`
 
 ## Configuration Options
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Sync Key | `kv_sync` | Frontmatter key to check for sync flag |
-| ID Key | `id` | Frontmatter key containing document ID |
-| Auto-sync | `true` | Automatically sync files on modification |
-| Debounce Delay | `2000ms` | Wait time before syncing after file changes |
+| Setting        | Default   | Description                                 |
+| -------------- | --------- | ------------------------------------------- |
+| Sync Key       | `kv_sync` | Frontmatter key to check for sync flag      |
+| ID Key         | `id`      | Frontmatter key containing document ID      |
+| Auto-sync      | `true`    | Automatically sync files on modification    |
+| Debounce Delay | `2000ms`  | Wait time before syncing after file changes |
 
 ## Examples
 
 ### Simple Blog Post
+
 ```yaml
 ---
 id: hello-world
@@ -113,13 +122,14 @@ kv_sync: true
 title: Hello World
 date: 2024-01-15
 ---
-
 # Hello World
 This is my first post!
 ```
+
 **KV Key**: `hello-world`
 
 ### Organized Content
+
 ```yaml
 ---
 id: advanced-js-patterns
@@ -128,32 +138,34 @@ collection: tutorials
 title: Advanced JavaScript Patterns
 tags: [javascript, programming]
 ---
-
 # Advanced JavaScript Patterns
 Learn about advanced patterns...
 ```
+
 **KV Key**: `tutorials/advanced-js-patterns`
 
 ### Draft Content (Not Synced)
+
 ```yaml
 ---
 id: work-in-progress
 kv_sync: false
 title: Work in Progress
 ---
-
 This won't be synced to KV.
 ```
 
 ## Troubleshooting
 
 ### Common Issues
+
 - **Files not syncing**: Check that `kv_sync: true` and ID field exist in frontmatter
 - **API errors**: Verify your Account ID, Namespace ID, and API token
 - **Permission errors**: Ensure API token has Cloudflare Workers:Edit permission
 - **Old keys remaining**: Plugin automatically cleans up when collections change
 
 ### Debug Steps
+
 1. Check Obsidian console for error messages (Ctrl+Shift+I)
 2. Verify Cloudflare KV namespace exists and is accessible
 3. Test API token permissions in Cloudflare dashboard
@@ -162,12 +174,14 @@ This won't be synced to KV.
 ## Development
 
 ### Building
+
 ```bash
 npm install
 npm run build
 ```
 
 ### Development Mode
+
 ```bash
 npm run dev
 ```
@@ -175,6 +189,7 @@ npm run dev
 This will watch for changes and rebuild automatically.
 
 ### Contributing
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -193,6 +208,7 @@ MIT License - see LICENSE file for details.
 ## Changelog
 
 ### 0.1.0
+
 - Initial release
 - Automatic KV syncing based on frontmatter flags
 - Collection support for organized keys

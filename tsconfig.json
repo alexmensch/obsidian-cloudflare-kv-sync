@@ -11,15 +11,8 @@
     "importHelpers": true,
     "declaration": true,
     "outDir": "./dist",
-    "typeRoots": [
-      "./node_modules/@types"
-    ],
-    "lib": [
-      "DOM",
-      "ES6"
-    ]
+    "typeRoots": ["./node_modules/@types"],
+    "lib": ["DOM", "ES6"]
   },
-  "include": [
-    "**/*.ts"
-  ]
+  "include": ["**/*.ts"]
 }
