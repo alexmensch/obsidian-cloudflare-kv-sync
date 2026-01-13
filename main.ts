@@ -4,6 +4,7 @@ import {
   Notice,
   PluginSettingTab,
   App,
+  SecretComponent,
   Setting,
   parseYaml,
   requestUrl
@@ -453,6 +454,12 @@ export default class CloudflareKVPlugin extends Plugin {
       new Notice("Cloudflare KV Sync plugin requires configuration");
       return false;
     }
+
+    if (!app.secretStorage.get(this.settings.apiToken))
+    {
+      new Notice("Secret ${this.settings.apiToken} requires a value");
+      return false;
+    }
     return true;
   }
 
@@ -538,16 +545,12 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("API Token")
       .setDesc("Your Cloudflare API Token with KV permissions")
-      .addText((text) => {
-        text.inputEl.type = "password";
-        text
-          .setPlaceholder("Enter your API token")
-          .setValue(this.plugin.settings.apiToken)
-          .onChange(async (value) => {
-            this.plugin.settings.apiToken = value;
-            await this.plugin.saveSettings();
-          });
-      });
+      .addComponent(el => new SecretComponent(this.app, el)
+        .setValue(this.plugin.settings.apiToken)
+        .onChange(async (value) => {
+          this.plugin.settings.apiToken = value;
+          await this.plugin.saveSettings();
+        }));
 
     new Setting(containerEl)
       .setName("Sync Key")
