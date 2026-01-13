@@ -25,10 +25,6 @@ interface CloudflareKVCache {
   lastCleanup: number;
 }
 
-interface DefaultInternals {
-  cacheFile: string;
-}
-
 const DEFAULT_SETTINGS: CloudflareKVSettings = {
   accountId: "",
   namespaceId: "",
@@ -44,16 +40,13 @@ const DEFAULT_CACHE: CloudflareKVCache = {
   lastCleanup: 0
 }
 
-const DEFAULTS: DefaultInternals = {
-  cacheFile: "cache.json"
-}
-
 export default class CloudflareKVPlugin extends Plugin {
   settings: CloudflareKVSettings;
   private cache: CloudflareKVCache;
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private fileKeyCache: Map<string, string> = new Map();
   private static readonly CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private static cacheFile: string = "cache.json";
 
   async onload() {
     await this.loadSettings();
@@ -477,7 +470,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
   async loadCache() {
     try {
-      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/${DEFAULTS.cacheFile}`);
+      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`);
       this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
       
       // Convert cache object back to Map
@@ -498,7 +491,7 @@ export default class CloudflareKVPlugin extends Plugin {
       this.cache.fileKeyCache = Object.fromEntries(this.fileKeyCache);
       
       const cacheJson = JSON.stringify(this.cache, null, 2);
-      await this.app.vault.adapter.write(`${this.manifest.dir}/${DEFAULTS.cacheFile}`, cacheJson);
+      await this.app.vault.adapter.write(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`, cacheJson);
     } catch (error) {
       console.error('Error saving cache:', error);
     }
