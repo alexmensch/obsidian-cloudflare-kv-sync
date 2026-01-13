@@ -1,6 +1,6 @@
 {
   "name": "obsidian-cloudflare-kv-sync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Obsidian plugin to automatically sync Markdown files to Cloudflare KV storage.",
   "main": "main.js",
   "type": "module",
@@ -24,16 +24,16 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/node": "^25.0.7",
-    "builtin-modules": "5.0.0",
-    "esbuild": "0.27.2",
+    "@types/node": "^25.0.8",
+    "builtin-modules": "^5.0.0",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.5.0",
-    "obsidian": "latest",
+    "obsidian": "^1.11.4",
     "prettier": "^3.7.4",
-    "tslib": "2.8.1",
-    "typescript": "5.9.3",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.0"
   },
   "repository": {

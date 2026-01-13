@@ -4,6 +4,7 @@ import {
   Notice,
   PluginSettingTab,
   App,
+  SecretComponent,
   Setting,
   parseYaml,
   requestUrl
@@ -30,14 +31,9 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   apiToken: "",
   syncKey: "kv_sync",
   idKey: "id",
-  autoSync: true,
-  debounceDelay: 5000
+  autoSync: false,
+  debounceDelay: 15000
 };
-
-const DEFAULT_CACHE: CloudflareKVCache = {
-  fileKeyCache: {},
-  lastCleanup: 0
-}
 
 const DEFAULT_CACHE: CloudflareKVCache = {
   fileKeyCache: {},
@@ -455,7 +451,13 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.namespaceId ||
       !this.settings.apiToken
     ) {
-      new Notice("Please configure Cloudflare settings in plugin settings");
+      new Notice("Cloudflare KV Sync plugin requires configuration");
+      return false;
+    }
+
+    if (!this.app.secretStorage.getSecret(this.settings.apiToken))
+    {
+      new Notice("Secret ${this.settings.apiToken} requires a value");
       return false;
     }
     return true;
@@ -512,7 +514,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Cloudflare KV Auto-Sync Settings" });
+    containerEl.createEl("h2", { text: "Cloudflare KV Sync Settings" });
 
     new Setting(containerEl)
       .setName("Account ID")
@@ -543,23 +545,19 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("API Token")
       .setDesc("Your Cloudflare API Token with KV permissions")
-      .addText((text) => {
-        text.inputEl.type = "password";
-        text
-          .setPlaceholder("Enter your API token")
-          .setValue(this.plugin.settings.apiToken)
-          .onChange(async (value) => {
-            this.plugin.settings.apiToken = value;
-            await this.plugin.saveSettings();
-          });
-      });
+      .addComponent(el => new SecretComponent(this.app, el)
+        .setValue(this.plugin.settings.apiToken)
+        .onChange(async (value) => {
+          this.plugin.settings.apiToken = value;
+          await this.plugin.saveSettings();
+        }));
 
     new Setting(containerEl)
       .setName("Sync Key")
       .setDesc("Frontmatter key to check for sync flag (must be true to sync)")
       .addText((text) =>
         text
-          .setPlaceholder("kv_sync")
+          .setPlaceholder(DEFAULT_SETTINGS.syncKey)
           .setValue(this.plugin.settings.syncKey)
           .onChange(async (value) => {
             this.plugin.settings.syncKey = value;
@@ -572,7 +570,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       .setDesc("Frontmatter key containing the document ID")
       .addText((text) =>
         text
-          .setPlaceholder("id")
+          .setPlaceholder(DEFAULT_SETTINGS.idKey)
           .setValue(this.plugin.settings.idKey)
           .onChange(async (value) => {
             this.plugin.settings.idKey = value;
@@ -597,11 +595,10 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       .setDesc("Wait time before syncing after file modification")
       .addText((text) =>
         text
-          .setPlaceholder("2000")
+          .setPlaceholder(DEFAULT_SETTINGS.debounceDelay.toString())
           .setValue(this.plugin.settings.debounceDelay.toString())
           .onChange(async (value) => {
-            const delay = parseInt(value) || 2000;
-            this.plugin.settings.debounceDelay = delay;
+            this.plugin.settings.debounceDelay = parseInt(value);
             await this.plugin.saveSettings();
           })
       );
