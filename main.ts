@@ -226,10 +226,6 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  private extractDocId(frontmatter: any): string | null {
-    return frontmatter[this.settings.idKey] || null;
-  }
-
   async syncFile(file: TFile) {
     if (!this.validateSettings()) {
       return;
