@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   idKey: "id",
   autoSync: false,
   debounceDelay: 15000
-};
+}
 
 const DEFAULT_CACHE: CloudflareKVCache = {
   fileKeyCache: {},
@@ -46,14 +46,13 @@ export default class CloudflareKVPlugin extends Plugin {
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private fileKeyCache: Map<string, string> = new Map();
   private static readonly CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private static cacheFile: string = "cache.json";
 
   async onload() {
     await this.loadSettings();
     await this.loadCache();
 
-    // Perform periodic cleanup check on startup
     this.performPeriodicCleanupCheck();
-
 
     this.addRibbonIcon('cloud-upload', 'Sync to Cloudflare KV', () => {
       this.syncAllTaggedFiles();
@@ -80,19 +79,6 @@ export default class CloudflareKVPlugin extends Plugin {
       }
     });
 
-    this.addCommand({
-      id: "remove-current-file-from-kv",
-      name: "Remove current file from Cloudflare KV",
-      callback: () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (activeFile) {
-          this.removeFileFromKV(activeFile);
-        } else {
-          new Notice("No active file to remove");
-        }
-      }
-    });
-
     if (this.settings.autoSync) {
       this.registerEvent(
         this.app.vault.on("modify", (file) => {
@@ -107,10 +93,8 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   onunload() {
-    // Save cache before unloading
     this.saveCache();
     
-    // Clear any pending timeouts
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
     }
@@ -227,10 +211,6 @@ export default class CloudflareKVPlugin extends Plugin {
       console.error("Error parsing frontmatter:", error);
       return null;
     }
-  }
-
-  private extractDocId(frontmatter: any): string | null {
-    return frontmatter[this.settings.idKey] || null;
   }
 
   async syncFile(file: TFile) {
@@ -384,41 +364,6 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  async removeFileFromKV(file: TFile) {
-    if (!this.validateSettings()) {
-      return;
-    }
-
-    try {
-      // Try to get current KV key
-      const frontmatter = await this.getFrontmatter(file);
-      let kvKey = null;
-
-      if (frontmatter) {
-        kvKey = this.buildKVKey(frontmatter);
-      }
-
-      // Also check cached key in case frontmatter changed
-      const cachedKey = this.fileKeyCache.get(file.path);
-
-      // Remove both current and cached keys if they exist and are different
-      const keysToRemove = new Set([kvKey, cachedKey].filter((key) => key));
-
-      for (const key of keysToRemove) {
-        await this.deleteFromKV(key);
-      }
-
-      if (keysToRemove.size > 0) {
-        new Notice(`🗑️ Removed ${file.name} from Cloudflare KV`);
-        this.fileKeyCache.delete(file.path);
-        await this.saveCache(); // Persist cache after manual removal
-      }
-    } catch (error) {
-      console.error("Error removing file from KV:", error);
-      new Notice(`❌ Error removing ${file.name}: ${error.message}`);
-    }
-  }
-
   async uploadToKV(key: string, value: string) {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
 
@@ -457,7 +402,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     if (!this.app.secretStorage.getSecret(this.settings.apiToken))
     {
-      new Notice("Secret ${this.settings.apiToken} requires a value");
+      new Notice(`Secret ${this.settings.apiToken} requires a value`);
       return false;
     }
     return true;
@@ -473,7 +418,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
   async loadCache() {
     try {
-      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/cache.json`);
+      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`);
       this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
       
       // Convert cache object back to Map
@@ -494,7 +439,7 @@ export default class CloudflareKVPlugin extends Plugin {
       this.cache.fileKeyCache = Object.fromEntries(this.fileKeyCache);
       
       const cacheJson = JSON.stringify(this.cache, null, 2);
-      await this.app.vault.adapter.write(`${this.manifest.dir}/cache.json`, cacheJson);
+      await this.app.vault.adapter.write(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`, cacheJson);
     } catch (error) {
       console.error('Error saving cache:', error);
     }
