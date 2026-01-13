@@ -25,6 +25,10 @@ interface CloudflareKVCache {
   lastCleanup: number;
 }
 
+interface DefaultInternals {
+  cacheFile: string;
+}
+
 const DEFAULT_SETTINGS: CloudflareKVSettings = {
   accountId: "",
   namespaceId: "",
@@ -33,11 +37,15 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   idKey: "id",
   autoSync: false,
   debounceDelay: 15000
-};
+}
 
 const DEFAULT_CACHE: CloudflareKVCache = {
   fileKeyCache: {},
   lastCleanup: 0
+}
+
+const DEFAULTS: DefaultInternals = {
+  cacheFile: "cache.json"
 }
 
 export default class CloudflareKVPlugin extends Plugin {
@@ -51,9 +59,7 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.loadSettings();
     await this.loadCache();
 
-    // Perform periodic cleanup check on startup
     this.performPeriodicCleanupCheck();
-
 
     this.addRibbonIcon('cloud-upload', 'Sync to Cloudflare KV', () => {
       this.syncAllTaggedFiles();
@@ -107,10 +113,8 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   onunload() {
-    // Save cache before unloading
     this.saveCache();
     
-    // Clear any pending timeouts
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
     }
@@ -457,7 +461,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     if (!this.app.secretStorage.getSecret(this.settings.apiToken))
     {
-      new Notice("Secret ${this.settings.apiToken} requires a value");
+      new Notice(`Secret ${this.settings.apiToken} requires a value`);
       return false;
     }
     return true;
@@ -473,7 +477,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
   async loadCache() {
     try {
-      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/cache.json`);
+      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/${DEFAULTS.cacheFile}`);
       this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
       
       // Convert cache object back to Map
@@ -494,7 +498,7 @@ export default class CloudflareKVPlugin extends Plugin {
       this.cache.fileKeyCache = Object.fromEntries(this.fileKeyCache);
       
       const cacheJson = JSON.stringify(this.cache, null, 2);
-      await this.app.vault.adapter.write(`${this.manifest.dir}/cache.json`, cacheJson);
+      await this.app.vault.adapter.write(`${this.manifest.dir}/${DEFAULTS.cacheFile}`, cacheJson);
     } catch (error) {
       console.error('Error saving cache:', error);
     }
