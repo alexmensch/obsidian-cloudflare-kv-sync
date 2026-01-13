@@ -79,19 +79,6 @@ export default class CloudflareKVPlugin extends Plugin {
       }
     });
 
-    this.addCommand({
-      id: "remove-current-file-from-kv",
-      name: "Remove current file from Cloudflare KV",
-      callback: () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (activeFile) {
-          this.removeFileFromKV(activeFile);
-        } else {
-          new Notice("No active file to remove");
-        }
-      }
-    });
-
     if (this.settings.autoSync) {
       this.registerEvent(
         this.app.vault.on("modify", (file) => {
@@ -374,41 +361,6 @@ export default class CloudflareKVPlugin extends Plugin {
 
     if (cleanupCount > 0) {
       new Notice(`🧹 Cleaned up ${cleanupCount} orphaned entries from KV`);
-    }
-  }
-
-  async removeFileFromKV(file: TFile) {
-    if (!this.validateSettings()) {
-      return;
-    }
-
-    try {
-      // Try to get current KV key
-      const frontmatter = await this.getFrontmatter(file);
-      let kvKey = null;
-
-      if (frontmatter) {
-        kvKey = this.buildKVKey(frontmatter);
-      }
-
-      // Also check cached key in case frontmatter changed
-      const cachedKey = this.fileKeyCache.get(file.path);
-
-      // Remove both current and cached keys if they exist and are different
-      const keysToRemove = new Set([kvKey, cachedKey].filter((key) => key));
-
-      for (const key of keysToRemove) {
-        await this.deleteFromKV(key);
-      }
-
-      if (keysToRemove.size > 0) {
-        new Notice(`🗑️ Removed ${file.name} from Cloudflare KV`);
-        this.fileKeyCache.delete(file.path);
-        await this.saveCache(); // Persist cache after manual removal
-      }
-    } catch (error) {
-      console.error("Error removing file from KV:", error);
-      new Notice(`❌ Error removing ${file.name}: ${error.message}`);
     }
   }
 
