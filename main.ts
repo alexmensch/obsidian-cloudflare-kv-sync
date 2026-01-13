@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   syncKey: "kv_sync",
   idKey: "id",
   autoSync: true,
-  debounceDelay: 5000
+  debounceDelay: 15000
 };
 
 const DEFAULT_CACHE: CloudflareKVCache = {
