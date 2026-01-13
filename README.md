@@ -31,7 +31,7 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 1. Clone this repository
 2. Run `npm install` to install dependencies
 3. Run `npm run build` to build the plugin
-4. Copy `main.js` and `manifest.json` to a new folder in your vault's plugin folder, eg. `.obsidian/plugins/cloudflare-kv-sync/`
+4. Copy `main.js`, `manifest.json`, and `versions.json` to a new folder in your vault's plugin folder, eg. `.obsidian/plugins/cloudflare-kv-sync/`
 
 ## Setup
 
