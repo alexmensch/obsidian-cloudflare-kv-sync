@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   apiToken: "",
   syncKey: "kv_sync",
   idKey: "id",
-  autoSync: true,
+  autoSync: false,
   debounceDelay: 15000
 };
 
@@ -455,7 +455,7 @@ export default class CloudflareKVPlugin extends Plugin {
       return false;
     }
 
-    if (!app.secretStorage.get(this.settings.apiToken))
+    if (!this.app.secretStorage.getSecret(this.settings.apiToken))
     {
       new Notice("Secret ${this.settings.apiToken} requires a value");
       return false;
@@ -595,7 +595,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       .setDesc("Wait time before syncing after file modification")
       .addText((text) =>
         text
-          .setPlaceholder(DEFAULT_SETTINGS.debounceDelay)
+          .setPlaceholder(DEFAULT_SETTINGS.debounceDelay.toString())
           .setValue(this.plugin.settings.debounceDelay.toString())
           .onChange(async (value) => {
             this.plugin.settings.debounceDelay = parseInt(value);
