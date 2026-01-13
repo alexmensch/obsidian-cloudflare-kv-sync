@@ -427,7 +427,7 @@ export default class CloudflareKVPlugin extends Plugin {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
 
     const response = await requestUrl({
-      url: url,
+      url,
       method: "PUT",
       headers: {
         Authorization: `Bearer ${this.settings.apiToken}`,
@@ -441,7 +441,7 @@ export default class CloudflareKVPlugin extends Plugin {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
 
     const response = await requestUrl({
-      url: url,
+      url,
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${this.settings.apiToken}`
