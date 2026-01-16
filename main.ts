@@ -254,6 +254,8 @@ export default class CloudflareKVPlugin extends Plugin {
       }
     }
 
+    await this.saveCache();
+
     if (successful > 0 || failed > 0) {
       new Notice(
         `ℹ️ Cleanup complete: ${successful} successful, ${failed} failed`
@@ -367,9 +369,7 @@ export default class CloudflareKVPlugin extends Plugin {
         `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
       );
       this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
-      console.log(`Loaded ${this.syncedFiles.size} cached file mappings`);
     } catch {
-      console.log("No existing cache found, creating empty cache");
       this.cache = Object.assign({}, DEFAULT_CACHE);
     } finally {
       this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
