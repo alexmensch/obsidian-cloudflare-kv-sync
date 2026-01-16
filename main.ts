@@ -155,11 +155,18 @@ export default class CloudflareKVPlugin extends Plugin {
     for (const file of files) {
       const syncResult = await this.syncFile(file);
 
-      if (syncResult.success === true) {
-        successful++;
-      } else {
-        failed++;
-        console.error(`Cloudflare KV API error: ${syncResult.error}`);
+      if (syncResult.skipped === false) {
+        if (syncResult.sync) {
+          if (syncResult.sync.success === true) {
+            successful++;
+          } else {
+            failed++;
+            console.error(`Cloudflare KV API error: ${syncResult.sync.error}`);
+          }
+        } else if (syncResult.error) {
+          failed++;
+          console.error(`Sync error: ${syncResult.error}`);
+        }
       }
     }
 
