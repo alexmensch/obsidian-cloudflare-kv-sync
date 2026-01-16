@@ -88,8 +88,9 @@ title: My Blog Post
 This creates KV key: `writing/my-blog-post`
 
 ### Manual Controls
+
 - **Ribbon icon**: Click the cloud upload icon to sync all marked files.
-- **Command palette**: 
+- **Command palette**:
   - "Sync all files marked for KV sync"
   - "Sync current file to Cloudflare KV"
   - "Remove current file from Cloudflare KV"
