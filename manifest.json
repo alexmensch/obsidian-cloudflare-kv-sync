@@ -1,11 +1,11 @@
 {
-	"id": "cloudflare-kv-sync",
-	"name": "Cloudflare KV Sync",
-	"version": "0.3.0",
-	"minAppVersion": "1.11.1",
-	"description": "Automatically sync tagged Markdown files to Cloudflare KV storage.",
-	"author": "Alex Marshall",
-	"authorUrl": "https://alxm.me",
-	"fundingUrl": "",
-	"isDesktopOnly": false
+  "id": "cloudflare-kv-sync",
+  "name": "Cloudflare KV Sync",
+  "version": "0.3.0",
+  "minAppVersion": "1.11.1",
+  "description": "Automatically sync tagged Markdown files to Cloudflare KV storage.",
+  "author": "Alex Marshall",
+  "authorUrl": "https://alxm.me",
+  "fundingUrl": "",
+  "isDesktopOnly": false
 }

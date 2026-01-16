@@ -288,12 +288,13 @@ export default class CloudflareKVPlugin extends Plugin {
     body?: string
   ): Promise<KVRequestResult> {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
+    const apiToken = this.app.secretStorage.getSecret(this.settings.apiToken);
 
     const response = await requestUrl({
       url,
       method,
       headers: {
-        Authorization: `Bearer ${this.settings.apiToken}`,
+        Authorization: `Bearer ${apiToken}`,
         ...(body ? { "Content-Type": "text/plain" } : {})
       },
       ...(body ? { body } : {})
