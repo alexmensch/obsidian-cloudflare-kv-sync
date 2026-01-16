@@ -21,9 +21,18 @@ interface CloudflareKVSettings {
 }
 
 interface CloudflareKVCache {
-  fileKeyCache: Record<string, string>;
-  lastCleanup: number;
+  syncedFiles: Record<string, string>;
 }
+
+type KVRequestResult = { success: true } | { success: false; error: string };
+
+type SyncActionResult = KVRequestResult & {
+  action: "create" | "delete";
+};
+
+type SyncResult =
+  | { skipped: true; error?: string; sync?: undefined }
+  | { skipped: false; error?: string; sync?: SyncActionResult };
 
 const DEFAULT_SETTINGS: CloudflareKVSettings = {
   accountId: "",
@@ -33,49 +42,50 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   idKey: "id",
   autoSync: false,
   debounceDelay: 15000
-}
+};
 
 const DEFAULT_CACHE: CloudflareKVCache = {
-  fileKeyCache: {},
-  lastCleanup: 0
-}
+  syncedFiles: {}
+};
+
+const SKIPPED_SYNC_RESULT: SyncResult = {
+  skipped: true
+};
 
 export default class CloudflareKVPlugin extends Plugin {
   settings: CloudflareKVSettings;
-  private cache: CloudflareKVCache;
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private fileKeyCache: Map<string, string> = new Map();
-  private static readonly CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private syncedFiles: Map<string, string> = new Map();
+  private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
 
   async onload() {
     await this.loadSettings();
     await this.loadCache();
 
-    this.performPeriodicCleanupCheck();
-
-    this.addRibbonIcon('cloud-upload', 'Sync to Cloudflare KV', () => {
-      this.syncAllTaggedFiles();
+    this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
+      this.syncAllFiles();
     });
 
     this.addCommand({
-      id: 'sync-all-tagged-files',
-      name: 'Sync all marked files to Cloudflare KV',
-      callback: () => {
-        this.syncAllTaggedFiles();
-      }
-    });
-
-    this.addCommand({
-      id: "sync-current-file",
+      id: "sync-current-file-to-kv",
       name: "Sync current file to Cloudflare KV",
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
-          this.syncFile(activeFile);
+          this.syncSingleFile(activeFile);
         } else {
           new Notice("No active file to sync");
         }
+      }
+    });
+
+    this.addCommand({
+      id: "sync-all-files-to-kv",
+      name: "Sync all marked files to Cloudflare KV",
+      callback: () => {
+        this.syncAllFiles();
+        this.removeOrphanedUploads();
       }
     });
 
@@ -83,7 +93,7 @@ export default class CloudflareKVPlugin extends Plugin {
       this.registerEvent(
         this.app.vault.on("modify", (file) => {
           if (file instanceof TFile && file.extension === "md") {
-            this.debouncedSync(file);
+            this.debouncedFileSync(file);
           }
         })
       );
@@ -92,50 +102,15 @@ export default class CloudflareKVPlugin extends Plugin {
     this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
   }
 
-  onunload() {
-    this.saveCache();
-    
-    for (const timeout of this.syncTimeouts.values()) {
-      clearTimeout(timeout);
-    }
-    this.syncTimeouts.clear();
-  }
-
-  private async performPeriodicCleanupCheck() {
-    const now = Date.now();
-    const timeSinceLastCleanup = now - this.cache.lastCleanup;
-    
-    if (timeSinceLastCleanup >= CloudflareKVPlugin.CLEANUP_INTERVAL_MS) {
-      console.log('Performing periodic cleanup check...');
-      try {
-        const files = this.app.vault.getMarkdownFiles();
-        const checkedFiles = new Set<string>();
-        
-        // Just check files, don't sync
-        for (const file of files) {
-          checkedFiles.add(file.path);
-        }
-        
-        await this.cleanupOrphanedCacheEntries(checkedFiles);
-        this.cache.lastCleanup = now;
-        await this.saveCache();
-      } catch (error) {
-        console.error('Error during periodic cleanup:', error);
-      }
-      }
-  }
-
-  private debouncedSync(file: TFile) {
-    // Clear existing timeout for this file
+  private async debouncedFileSync(file: TFile) {
     const existingTimeout = this.syncTimeouts.get(file.path);
     if (existingTimeout) {
       clearTimeout(existingTimeout);
     }
 
-    // Set new timeout
     const timeout = setTimeout(async () => {
       try {
-        await this.handleFileChange(file);
+        await this.syncSingleFile(file);
       } catch (error) {
         console.error("Error in debounced sync:", error);
       } finally {
@@ -146,251 +121,219 @@ export default class CloudflareKVPlugin extends Plugin {
     this.syncTimeouts.set(file.path, timeout);
   }
 
-  private async handleFileChange(file: TFile) {
-    const frontmatter = await this.getFrontmatter(file);
-    if (!frontmatter) return;
+  private async syncSingleFile(file: TFile) {
+    if (!this.validateSettings()) {
+      return;
+    }
 
-    const currentKey = this.buildKVKey(frontmatter);
-    const previousKey = this.fileKeyCache.get(file.path);
-    const shouldSync = this.shouldSyncFile(frontmatter);
+    const syncResult = await this.syncFile(file);
+    await this.saveCache();
 
-    if (shouldSync && currentKey) {
-      // File should be synced
-      if (previousKey && previousKey !== currentKey) {
-        // Key changed, remove old entry first
-        await this.deleteFromKV(previousKey);
-      }
-      await this.syncFile(file);
-      this.fileKeyCache.set(file.path, currentKey);
-      await this.saveCache(); // Persist cache after successful sync
-    } else {
-      // File should not be synced
-      if (previousKey) {
-        // Remove from KV and cache
-        await this.deleteFromKV(previousKey);
-        this.fileKeyCache.delete(file.path);
-        await this.saveCache(); // Persist cache after cleanup
+    if (syncResult.skipped === true) {
+      new Notice("ℹ️ File not marked for sync");
+    } else if (syncResult.sync) {
+      const sync = syncResult.sync;
+
+      if (sync.success === true) {
+        new Notice("✅ Successful sync");
+      } else {
+        new Notice(`❌ Error syncing: ${sync.error}`);
       }
     }
   }
 
-  private async getFrontmatter(file: TFile): Promise<any> {
+  private async syncAllFiles() {
+    if (!this.validateSettings()) {
+      return;
+    }
+
+    const files = this.app.vault.getMarkdownFiles();
+
+    let successful = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      const syncResult = await this.syncFile(file);
+
+      if (syncResult.sync.success === true) {
+        successful++;
+      } else {
+        failed++;
+        console.error(`Cloudflare KV API error: ${syncResult.sync.error}`);
+      }
+    }
+
+    await this.saveCache();
+
+    new Notice(`ℹ️ Sync complete: ${successful} successful, ${failed} failed`);
+  }
+
+  private async syncFile(file: TFile): Promise<SyncResult> {
+    const result: SyncResult = { ...SKIPPED_SYNC_RESULT };
+    const frontmatter = await this.getFrontmatter(file);
+    const syncValue = frontmatter?.[this.settings.syncKey];
+    const docId = frontmatter?.[this.settings.idKey] as string;
+    const fileContent = await this.app.vault.cachedRead(file);
+    const previousKVKey = this.syncedFiles.get(file.path);
+
+    if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
+      // File was previously synced, but is now missing metadata needed for sync
+      result.skipped = false;
+      result.sync = await this.deleteFromKV(previousKVKey);
+      if (result.sync.success) this.syncedFiles.delete(file.path);
+      return result;
+    }
+    if (!frontmatter) {
+      result.error = `No frontmatter found in ${file.name}`;
+      return result;
+    }
+    if (!syncValue) return result;
+    if (!docId) {
+      result.error = `Missing doc ID in ${file.name}`;
+      return result;
+    }
+
+    const currentKVKey = this.buildKVKey(frontmatter);
+
+    if (syncValue === true || String(syncValue).toLowerCase() === "true") {
+      // File is marked for sync
+      result.skipped = false;
+
+      if (previousKVKey && previousKVKey !== currentKVKey) {
+        // File's sync key has changed
+        const deleteResult = await this.deleteFromKV(previousKVKey);
+
+        if (deleteResult.success === false) {
+          result.error = `Unable to delete old KV entry: ${deleteResult.error}`;
+          return result;
+        }
+        this.syncedFiles.delete(file.path);
+      }
+
+      result.sync = await this.uploadToKV(currentKVKey, fileContent);
+
+      if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
+    } else if (previousKVKey) {
+      // File was previously synced, but no longer marked for sync
+      result.skipped = false;
+      result.sync = await this.deleteFromKV(previousKVKey);
+
+      if (result.sync.success) this.syncedFiles.delete(file.path);
+    }
+
+    return result;
+  }
+
+  private async removeOrphanedUploads() {
+    const entriesToRemove: Array<{ filePath: string; kvKey: string }> = [];
+
+    for (const [filePath, kvKey] of this.syncedFiles.entries()) {
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (!file || !(file instanceof TFile))
+        entriesToRemove.push({ filePath, kvKey });
+    }
+
+    let successful = 0;
+    let failed = 0;
+
+    for (const { filePath, kvKey } of entriesToRemove) {
+      const result = await this.deleteFromKV(kvKey);
+      if (result.success === true) {
+        successful++;
+        this.syncedFiles.delete(filePath);
+      } else {
+        failed++;
+        console.error(`Cloudflare KV API error: ${result.error}`);
+      }
+    }
+
+    if (successful > 0 || failed > 0) {
+      new Notice(
+        `ℹ️ Cleanup complete: ${successful} successful, ${failed} failed`
+      );
+    }
+  }
+
+  private async getFrontmatter(
+    file: TFile
+  ): Promise<Record<string, unknown> | null> {
     try {
       const content = await this.app.vault.cachedRead(file);
-      return this.extractFrontmatter(content);
+
+      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (!frontmatterMatch) return null;
+
+      try {
+        return parseYaml(frontmatterMatch[1]);
+      } catch (error) {
+        console.error("Error parsing frontmatter:", error);
+        return null;
+      }
     } catch (error) {
       console.error(`Error reading file: ${file.name}`, error);
       return null;
     }
   }
 
-  private shouldSyncFile(frontmatter: any): boolean {
-    if (!frontmatter) return false;
+  private buildKVKey(frontmatter: Record<string, unknown>): string | null {
+    const docId = frontmatter[this.settings.idKey] as string;
+    const collection = frontmatter["collection"] as string;
 
-    const syncValue = frontmatter[this.settings.syncKey];
-    const docId = frontmatter[this.settings.idKey];
-    
-    return (syncValue === true || String(syncValue).toLowerCase() === 'true') && !!docId;
-  }
-
-  private buildKVKey(frontmatter: any): string | null {
-    const docId = frontmatter[this.settings.idKey];
-    if (!docId) return null;
-
-    const collection = frontmatter.collection;
     return collection ? `${collection}/${docId}` : docId;
   }
 
-  private extractFrontmatter(content: string): any {
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!frontmatterMatch) return null;
-
-    try {
-      return parseYaml(frontmatterMatch[1]);
-    } catch (error) {
-      console.error("Error parsing frontmatter:", error);
-      return null;
-    }
-  }
-
-  async syncFile(file: TFile) {
-    if (!this.validateSettings()) {
-      return;
-    }
-
-    try {
-      const content = await this.app.vault.cachedRead(file);
-      const frontmatter = this.extractFrontmatter(content);
-
-      if (!frontmatter) {
-        new Notice(`No frontmatter found in ${file.name}`);
-        return;
-      }
-
-      if (!this.shouldSyncFile(frontmatter)) {
-        new Notice(`File ${file.name} is not marked for KV sync`);
-        return;
-      }
-
-      const kvKey = this.buildKVKey(frontmatter);
-      if (!kvKey) {
-        new Notice(`No document ID found in frontmatter of ${file.name}`);
-        return;
-      }
-
-      await this.uploadToKV(kvKey, content);
-      new Notice(`✅ Synced ${file.name} to KV as "${kvKey}"`);
-    } catch (error) {
-      console.error("Error syncing file:", error);
-      new Notice(`❌ Error syncing ${file.name}: ${error.message}`);
-    }
-  }
-
-  async syncAllTaggedFiles() {
-    if (!this.validateSettings()) {
-      return;
-    }
-
-    const files = this.app.vault.getMarkdownFiles();
-    const syncedFiles = [];
-    const checkedFiles = new Set<string>(); // Track files we've processed
-
-    // Find all files marked for sync
-    for (const file of files) {
-      const frontmatter = await this.getFrontmatter(file);
-      checkedFiles.add(file.path);
-      
-      if (this.shouldSyncFile(frontmatter)) {
-        syncedFiles.push(file);
-      }
-    }
-
-    // Check cached files that are no longer marked for sync or no longer exist
-    await this.cleanupOrphanedCacheEntries(checkedFiles);
-
-    if (syncedFiles.length === 0) {
-      new Notice(
-        `No files found with '${this.settings.syncKey}: true' and an ID`
-      );
-      return;
-    }
-
-    new Notice(`Starting sync of ${syncedFiles.length} files...`);
-
-    let successful = 0;
-    let failed = 0;
-
-    for (const file of syncedFiles) {
-      try {
-        await this.syncFile(file);
-        successful++;
-      } catch (error) {
-        failed++;
-        console.error(`Failed to sync ${file.name}:`, error);
-      }
-    }
-
-    new Notice(`Sync complete: ${successful} successful, ${failed} failed`);
-    
-    // Update cleanup timestamp and save cache
-    this.cache.lastCleanup = Date.now();
-    await this.saveCache();
-  }
-
-  /**
-   * Clean up cache entries for files that:
-   * 1. No longer exist in the vault
-   * 2. No longer have kv_sync set to true
-   * 3. No longer have the required ID field
-   */
-  private async cleanupOrphanedCacheEntries(checkedFiles: Set<string>) {
-    const entriesToRemove: Array<{ filePath: string; kvKey: string }> = [];
-
-    // Check each cached entry
-    for (const [filePath, kvKey] of this.fileKeyCache.entries()) {
-      let shouldRemove = false;
-
-      // Check if file still exists in vault
-      const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (!file || !(file instanceof TFile)) {
-        // File no longer exists in vault
-        console.log(`File ${filePath} no longer exists, removing from cache and KV`);
-        shouldRemove = true;
-      } else {
-        // File exists, check if it still should be synced
-        try {
-          const frontmatter = await this.getFrontmatter(file);
-          
-          if (!this.shouldSyncFile(frontmatter)) {
-            console.log(`File ${filePath} no longer marked for sync, removing from KV`);
-            shouldRemove = true;
-          } else {
-            // File should still be synced, but check if key changed
-            const currentKey = this.buildKVKey(frontmatter);
-            if (currentKey && currentKey !== kvKey) {
-              console.log(`File ${filePath} key changed from ${kvKey} to ${currentKey}, removing old key`);
-              entriesToRemove.push({ filePath, kvKey });
-              // Don't remove from cache here since the new key will be set during sync
-              continue;
-            }
-          }
-        } catch (error) {
-          console.error(`Error checking file ${filePath} for cleanup:`, error);
-          // If we can't read the file, assume it should be removed
-          shouldRemove = true;
-        }
-      }
-
-      if (shouldRemove) {
-        entriesToRemove.push({ filePath, kvKey });
-      }
-    }
-
-    // Remove orphaned entries
-    let cleanupCount = 0;
-    for (const { filePath, kvKey } of entriesToRemove) {
-      try {
-        await this.deleteFromKV(kvKey);
-        this.fileKeyCache.delete(filePath);
-        cleanupCount++;
-        console.log(`Cleaned up orphaned entry: ${filePath} -> ${kvKey}`);
-      } catch (error) {
-        console.error(`Error cleaning up ${filePath} -> ${kvKey}:`, error);
-      }
-    }
-
-    if (cleanupCount > 0) {
-      new Notice(`🧹 Cleaned up ${cleanupCount} orphaned entries from KV`);
-    }
-  }
-
-  async uploadToKV(key: string, value: string) {
+  private async kvRequest(
+    key: string,
+    method: "PUT" | "DELETE",
+    body?: string
+  ): Promise<KVRequestResult> {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
 
     const response = await requestUrl({
       url,
-      method: "PUT",
+      method,
       headers: {
         Authorization: `Bearer ${this.settings.apiToken}`,
-        "Content-Type": "text/plain"
+        ...(body ? { "Content-Type": "text/plain" } : {})
       },
-      body: value
+      ...(body ? { body } : {})
     });
+
+    const data = JSON.parse(response.text);
+
+    if (!data.success) {
+      return { success: false, error: `${JSON.stringify(data.errors)}` };
+    }
+
+    return { success: true };
   }
 
-  async deleteFromKV(key: string) {
-    const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
-
-    const response = await requestUrl({
-      url,
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${this.settings.apiToken}`
-      }
-    });
+  private async uploadToKV(
+    key: string,
+    value: string
+  ): Promise<SyncActionResult> {
+    return {
+      action: "create",
+      ...(await this.kvRequest(key, "PUT", value))
+    };
   }
 
-  validateSettings(): boolean {
+  private async deleteFromKV(key: string): Promise<SyncActionResult> {
+    return {
+      action: "delete",
+      ...(await this.kvRequest(key, "DELETE"))
+    };
+  }
+
+  private async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+
+  private validateSettings(): boolean {
     if (
       !this.settings.accountId ||
       !this.settings.namespaceId ||
@@ -400,49 +343,52 @@ export default class CloudflareKVPlugin extends Plugin {
       return false;
     }
 
-    if (!this.app.secretStorage.getSecret(this.settings.apiToken))
-    {
-      new Notice(`Secret ${this.settings.apiToken} requires a value`);
+    if (!this.app.secretStorage.getSecret(this.settings.apiToken)) {
+      new Notice(
+        `Keychain secret "${this.settings.apiToken}" requires a value`
+      );
       return false;
     }
+
     return true;
   }
 
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-
-  async saveSettings() {
-    await this.saveData(this.settings);
-  }
-
-  async loadCache() {
+  private async loadCache() {
     try {
-      const cacheData = await this.app.vault.adapter.read(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`);
+      const cacheData = await this.app.vault.adapter.read(
+        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
+      );
       this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
-      
-      // Convert cache object back to Map
-      this.fileKeyCache = new Map(Object.entries(this.cache.fileKeyCache));
-      
-      console.log(`Loaded ${this.fileKeyCache.size} cached file mappings`);
-    } catch (error) {
-      // Cache file doesn't exist or is corrupted, start fresh
-      console.log('No existing cache found, starting fresh');
+      console.log(`Loaded ${this.syncedFiles.size} cached file mappings`);
+    } catch {
+      console.log("No existing cache found, creating empty cache");
       this.cache = Object.assign({}, DEFAULT_CACHE);
-      this.fileKeyCache = new Map();
+    } finally {
+      this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
     }
   }
 
-  async saveCache() {
+  private async saveCache() {
     try {
-      // Convert Map to object for JSON serialization
-      this.cache.fileKeyCache = Object.fromEntries(this.fileKeyCache);
-      
+      this.cache.syncedFiles = Object.fromEntries(this.syncedFiles);
+
       const cacheJson = JSON.stringify(this.cache, null, 2);
-      await this.app.vault.adapter.write(`${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`, cacheJson);
+      await this.app.vault.adapter.write(
+        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`,
+        cacheJson
+      );
     } catch (error) {
-      console.error('Error saving cache:', error);
+      console.error("Error saving cache:", error);
     }
+  }
+
+  async onunload() {
+    await this.saveCache();
+
+    for (const timeout of this.syncTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    this.syncTimeouts.clear();
   }
 }
 
@@ -490,12 +436,14 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("API Token")
       .setDesc("Your Cloudflare API Token with KV permissions")
-      .addComponent(el => new SecretComponent(this.app, el)
-        .setValue(this.plugin.settings.apiToken)
-        .onChange(async (value) => {
-          this.plugin.settings.apiToken = value;
-          await this.plugin.saveSettings();
-        }));
+      .addComponent((el) =>
+        new SecretComponent(this.app, el)
+          .setValue(this.plugin.settings.apiToken)
+          .onChange(async (value) => {
+            this.plugin.settings.apiToken = value;
+            await this.plugin.saveSettings();
+          })
+      );
 
     new Setting(containerEl)
       .setName("Sync Key")
