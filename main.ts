@@ -65,6 +65,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
       this.syncAllFiles();
+      this.removeOrphanedUploads();
     });
 
     this.addCommand({
