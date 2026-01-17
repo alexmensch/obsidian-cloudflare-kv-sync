@@ -64,8 +64,8 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.loadCache();
 
     this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
-      this.syncAllFiles();
-      this.removeOrphanedUploads();
+      void this.syncAllFiles();
+      void this.removeOrphanedUploads();
     });
 
     this.addCommand({
@@ -74,7 +74,7 @@ export default class CloudflareKVPlugin extends Plugin {
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
-          this.syncSingleFile(activeFile);
+          void this.syncSingleFile(activeFile);
         } else {
           new Notice("No active file to sync");
         }
@@ -85,8 +85,8 @@ export default class CloudflareKVPlugin extends Plugin {
       id: "sync-all-files-to-kv",
       name: "Sync all marked files to Cloudflare KV",
       callback: () => {
-        this.syncAllFiles();
-        this.removeOrphanedUploads();
+        void this.syncAllFiles();
+        void this.removeOrphanedUploads();
       }
     });
 
@@ -103,20 +103,20 @@ export default class CloudflareKVPlugin extends Plugin {
     this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
   }
 
-  private async debouncedFileSync(file: TFile) {
+  private debouncedFileSync(file: TFile) {
     const existingTimeout = this.syncTimeouts.get(file.path);
     if (existingTimeout) {
       clearTimeout(existingTimeout);
     }
 
-    const timeout = setTimeout(async () => {
-      try {
-        await this.syncSingleFile(file);
-      } catch (error) {
-        console.error("Error in debounced sync:", error);
-      } finally {
-        this.syncTimeouts.delete(file.path);
-      }
+    const timeout = setTimeout(() => {
+      this.syncSingleFile(file)
+        .catch(error => {
+          console.error("Error in debounced sync:", error);
+        })
+        .finally(() => {
+          this.syncTimeouts.delete(file.path);
+        });
     }, this.settings.debounceDelay * 1000);
 
     this.syncTimeouts.set(file.path, timeout);
@@ -391,8 +391,11 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  async onunload() {
-    await this.saveCache();
+  onunload() {
+    this.saveCache()
+      .catch(error => {
+        console.error("Error saving cache to disk: ", error);
+      });
 
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
