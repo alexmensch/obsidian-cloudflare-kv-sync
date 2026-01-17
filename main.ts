@@ -111,7 +111,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const timeout = setTimeout(() => {
       this.syncSingleFile(file)
-        .catch(error => {
+        .catch((error) => {
           console.error("Error in debounced sync:", error);
         })
         .finally(() => {
@@ -179,8 +179,8 @@ export default class CloudflareKVPlugin extends Plugin {
   private async syncFile(file: TFile): Promise<SyncResult> {
     const result: SyncResult = { ...SKIPPED_SYNC_RESULT };
     const frontmatter = await this.getFrontmatter(file);
-    const syncValue = coerceBoolean(frontmatter?.[this.settings.syncKey]);
-    const docId = coerceString(frontmatter?.[this.settings.idKey]);
+    const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
+    const docId = this.coerceString(frontmatter?.[this.settings.idKey]);
     const fileContent = await this.app.vault.cachedRead(file);
     const previousKVKey = this.syncedFiles.get(file.path);
 
@@ -286,8 +286,8 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private buildKVKey(frontmatter: Record<string, unknown>): string | null {
-    const docId = coerceString(frontmatter[this.settings.idKey]);
-    const collection = coerceString(frontmatter["collection"]);
+    const docId = this.coerceString(frontmatter[this.settings.idKey]);
+    const collection = this.coerceString(frontmatter["collection"]);
 
     return collection ? `${collection}/${docId}` : docId;
   }
@@ -402,10 +402,9 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   onunload() {
-    this.saveCache()
-      .catch(error => {
-        console.error("Error saving cache to disk: ", error);
-      });
+    this.saveCache().catch((error) => {
+      console.error("Error saving cache to disk: ", error);
+    });
 
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
@@ -522,7 +521,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.setName("Setting up note properties").setHeading();
+    new Setting(containerEl).setName("Setting up note properties").setHeading();
     const ol = containerEl.createEl("ol");
     ol.createEl("li", {}, (li) => {
       li.appendText(
@@ -551,7 +550,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
     });
 
-    containerEl.setName("Example front matter").setHeading();
+    new Setting(containerEl).setName("Example front matter").setHeading();
     containerEl.createEl("pre").createEl("code", {
       text: [
         "---",
