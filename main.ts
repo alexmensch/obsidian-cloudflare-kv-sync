@@ -58,11 +58,28 @@ export default class CloudflareKVPlugin extends Plugin {
   private syncedFiles: Map<string, string> = new Map();
   private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
+  private loadedSuccesfully: boolean = false;
 
   async onload() {
-    await this.loadSettings();
-    await this.loadCache();
+    try {
+      await this.loadSettings();
+      await this.loadCache();
+      this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
+      this.loadedSuccesfully = true;
+    } catch (e) {
+      console.error(`Unable to load plugin, error: ${e}`);
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
+      new Notice("Cloudflare KV sync plugin failed to load. See console for details.");
+      return;
+    }
 
+    if (this.loadedSuccesfully) {
+      this.registerCommands();
+      this.registerEvents();
+    }
+  }
+
+  private registerCommands() {
     // eslint-disable-next-line obsidianmd/ui/sentence-case
     this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
       void this.syncAllFiles();
@@ -92,7 +109,9 @@ export default class CloudflareKVPlugin extends Plugin {
         void this.removeOrphanedUploads();
       }
     });
+  }
 
+  private registerEvents() {
     if (this.settings.autoSync) {
       this.registerEvent(
         this.app.vault.on("modify", (file) => {
@@ -102,8 +121,6 @@ export default class CloudflareKVPlugin extends Plugin {
         })
       );
     }
-
-    this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
   }
 
   private debouncedFileSync(file: TFile) {
@@ -279,7 +296,10 @@ export default class CloudflareKVPlugin extends Plugin {
       if (!frontmatterMatch) return null;
 
       try {
-        return parseYaml(frontmatterMatch[1]);
+        const raw: unknown = parseYaml(frontmatterMatch[1]);
+        if (raw && typeof raw === "object" && !Array.isArray(raw))
+          return raw as Record<string, unknown>;
+        return null;
       } catch (error) {
         console.error("Error parsing frontmatter:", error);
         return null;
@@ -307,12 +327,6 @@ export default class CloudflareKVPlugin extends Plugin {
     return typeof value === "string" && value.trim() !== "" ? value : undefined;
   }
 
-  private coerceObject<T extends object>(value: unknown): T | null {
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as T)
-      : null;
-  }
-
   private async kvRequest(
     key: string,
     method: "PUT" | "DELETE",
@@ -331,13 +345,15 @@ export default class CloudflareKVPlugin extends Plugin {
       ...(body ? { body } : {})
     });
 
-    const data = JSON.parse(response.text);
-
-    if (!data.success) {
-      return { success: false, error: `${JSON.stringify(data.errors)}` };
+    const raw: unknown = JSON.parse(response.text);
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const data = raw as Record<string, unknown>;
+      if (!data.success) {
+        return { success: false, error: `${JSON.stringify(data.errors)}` };
+      }
+      return { success: true };
     }
-
-    return { success: true };
+    throw new Error(`Unexpected response from Cloudflare KV API, response body is ${typeof raw}`);
   }
 
   private async uploadToKV(
@@ -358,7 +374,13 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const raw: unknown = await this.loadData();
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const settingsData = raw as Record<string, unknown>;
+      this.settings = Object.assign({}, DEFAULT_SETTINGS, settingsData);
+    } else {
+      throw new Error(`Unexpected response from settings data load, loadData response is ${typeof raw}`);
+    }
   }
 
   async saveSettings() {
@@ -391,11 +413,25 @@ export default class CloudflareKVPlugin extends Plugin {
       const cacheData = await this.app.vault.adapter.read(
         `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
       );
-      this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
-    } catch {
-      this.cache = Object.assign({}, DEFAULT_CACHE);
-    } finally {
+      const raw: unknown = JSON.parse(cacheData);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const parsed = raw as Record<string, unknown>;
+        this.cache = Object.assign({}, DEFAULT_CACHE, parsed);
+      } else {
+        throw new Error(`Unable to parse cache file, parsed object was type ${typeof raw}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("ENOENT")) {
+        this.cache = Object.assign({}, DEFAULT_CACHE);
+      } else {
+        throw e;
+      }
+    }
+
+    try {
       this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
+    } catch (e) {
+      throw new Error(`Failed to read cached data: ${e}`);
     }
   }
 
@@ -414,10 +450,15 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   onunload() {
-    this.saveCache().catch((error) => {
-      console.error("Error saving cache to disk: ", error);
-    });
+    if (this.loadedSuccesfully) {
+      this.saveCache().catch((error) => {
+        console.error("Error saving cache to disk: ", error);
+      });
+      this.unregisterEvents();
+    }
+  }
 
+  private unregisterEvents() {
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
     }
