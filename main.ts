@@ -522,7 +522,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Setting up note properties" });
+    containerEl.setName("Setting up note properties").setHeading();
     const ol = containerEl.createEl("ol");
     ol.createEl("li", {}, (li) => {
       li.appendText(
@@ -551,7 +551,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
     });
 
-    containerEl.createEl("h4", { text: "Example front matter" });
+    containerEl.setName("Example front matter").setHeading();
     containerEl.createEl("pre").createEl("code", {
       text: [
         "---",
