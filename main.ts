@@ -179,8 +179,8 @@ export default class CloudflareKVPlugin extends Plugin {
   private async syncFile(file: TFile): Promise<SyncResult> {
     const result: SyncResult = { ...SKIPPED_SYNC_RESULT };
     const frontmatter = await this.getFrontmatter(file);
-    const syncValue = frontmatter?.[this.settings.syncKey];
-    const docId = frontmatter?.[this.settings.idKey] as string;
+    const syncValue = coerceBoolean(frontmatter?.[this.settings.syncKey]);
+    const docId = coerceString(frontmatter?.[this.settings.idKey]);
     const fileContent = await this.app.vault.cachedRead(file);
     const previousKVKey = this.syncedFiles.get(file.path);
 
@@ -203,7 +203,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const currentKVKey = this.buildKVKey(frontmatter);
 
-    if (syncValue === true || String(syncValue).toLowerCase() === "true") {
+    if (syncValue) {
       // File is marked for sync
       result.skipped = false;
 
@@ -286,10 +286,20 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private buildKVKey(frontmatter: Record<string, unknown>): string | null {
-    const docId = frontmatter[this.settings.idKey] as string;
-    const collection = frontmatter["collection"] as string;
+    const docId = coerceString(frontmatter[this.settings.idKey]);
+    const collection = coerceString(frontmatter["collection"]);
 
     return collection ? `${collection}/${docId}` : docId;
+  }
+
+  private coerceBoolean(value: unknown): boolean {
+    if (value === true) return true;
+    if (typeof value === "string") return value.toLowerCase() === "true";
+    return false;
+  }
+
+  private coerceString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim() !== "" ? value : undefined;
   }
 
   private async kvRequest(
