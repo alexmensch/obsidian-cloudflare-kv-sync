@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   syncKey: "kv_sync",
   idKey: "id",
   autoSync: false,
-  debounceDelay: 15000
+  debounceDelay: 60
 };
 
 const DEFAULT_CACHE: CloudflareKVCache = {
@@ -117,7 +117,7 @@ export default class CloudflareKVPlugin extends Plugin {
       } finally {
         this.syncTimeouts.delete(file.path);
       }
-    }, this.settings.debounceDelay);
+    }, this.settings.debounceDelay * 1000);
 
     this.syncTimeouts.set(file.path, timeout);
   }
@@ -414,11 +414,9 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Cloudflare KV Sync Settings" });
-
     new Setting(containerEl)
-      .setName("Account ID")
-      .setDesc("Your Cloudflare Account ID")
+      .setName("Cloudflare account ID")
+      .setDesc("The Cloudflare account ID that holds the KV namespace")
       .addText((text) =>
         text
           .setPlaceholder("Enter your account ID")
@@ -430,8 +428,8 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Namespace ID")
-      .setDesc("Your Cloudflare KV Namespace ID")
+      .setName("KV namespace ID")
+      .setDesc("The Cloudflare KV namespace ID where your content is stored")
       .addText((text) =>
         text
           .setPlaceholder("Enter your namespace ID")
@@ -443,8 +441,8 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("API Token")
-      .setDesc("Your Cloudflare API Token with KV permissions")
+      .setName("Cloudflare API token")
+      .setDesc("Your Cloudflare API token with KV read/write permissions")
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.apiToken)
@@ -455,8 +453,10 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync Key")
-      .setDesc("Frontmatter key to check for sync flag (must be true to sync)")
+      .setName("Sync property name")
+      .setDesc(
+        "The name of the Boolean property name that determines whether the note will be synced"
+      )
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.syncKey)
@@ -468,8 +468,10 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("ID Key")
-      .setDesc("Frontmatter key containing the document ID")
+      .setName("Note ID property name")
+      .setDesc(
+        "The name of the property that holds a unique ID for each synced document"
+      )
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.idKey)
@@ -481,8 +483,10 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Auto-sync on save")
-      .setDesc("Automatically sync files when they are modified")
+      .setName("Auto-sync on modify")
+      .setDesc(
+        "Whether notes should be automatically synced when they are modified"
+      )
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoSync)
@@ -493,8 +497,8 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Debounce delay (ms)")
-      .setDesc("Wait time before syncing after file modification")
+      .setName("Auto-sync delay (seconds)")
+      .setDesc("How long to wait before syncing after modifying a note")
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.debounceDelay.toString())
@@ -505,28 +509,53 @@ class CloudflareKVSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "How it works" });
+    containerEl.createEl("h3", { text: "Setting up note properties" });
+    const ol = containerEl.createEl("ol");
+    ol.createEl("li", {}, (li) => {
+      li.appendText(
+        `Set the sync property (default: "${DEFAULT_SETTINGS.syncKey}") to `
+      );
+      li.createEl("strong", { text: "true" });
+      li.appendText(
+        " in note properties to sync a note to your Cloudflare KV namespace."
+      );
+    });
+    ol.createEl("li", {}, (li) => {
+      li.appendText(
+        `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
+      );
+      li.createEl("a", {
+        text: "this plugin",
+        href: "obsidian://show-plugin?id=guid-front-matter"
+      });
+      li.appendText(" to do this automatically.");
+    });
+    ol.createEl("li", {
+      text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in KV.'
+    });
 
-    const instructions = containerEl.createEl("div");
-    instructions.innerHTML = `
-      <ol>
-        <li>Set the sync key (default: "kv_sync") to <strong>true</strong> in your markdown files' frontmatter</li>
-        <li>Ensure each file has an ID field (configurable, default: "id") in its frontmatter</li>
-        <li>Optionally add a "collection" field to prefix the KV key</li>
-        <li>Files will automatically upload to KV when saved (if auto-sync is enabled)</li>
-        <li>Changing the sync key to false or removing it will remove the file from KV</li>
-        <li>Changing the collection will update the KV key automatically</li>
-        <li>Running "Sync all marked files" will also clean up orphaned entries</li>
-      </ol>
-      <h4>Example frontmatter:</h4>
-      <pre><code>---
-id: my-unique-post-id
-kv_sync: true
-collection: writing
-title: My Blog Post
----</code></pre>
-      <p>This would create KV key: <code>writing/my-unique-post-id</code></p>
-      <p>Without collection, KV key would be: <code>my-unique-post-id</code></p>
-    `;
+    containerEl.createEl("p", {
+      text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
+    });
+
+    containerEl.createEl("h4", { text: "Example front matter" });
+    containerEl.createEl("pre").createEl("code", {
+      text: [
+        "---",
+        "id: my-unique-post-id",
+        "kv_sync: true",
+        "collection: writing",
+        "title: My Blog Post",
+        "---"
+      ].join("\n")
+    });
+    containerEl.createEl("p", {}, (p) => {
+      p.appendText("This would create a KV pair with the key: ");
+      p.createEl("code", { text: "writing/my-unique-post-id" });
+    });
+    containerEl.createEl("p", {}, (p) => {
+      p.appendText("Without the collection property, KV pair key would be: ");
+      p.createEl("code", { text: "my-unique-post-id" });
+    });
   }
 }
