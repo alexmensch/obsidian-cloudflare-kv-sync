@@ -58,23 +58,42 @@ export default class CloudflareKVPlugin extends Plugin {
   private syncedFiles: Map<string, string> = new Map();
   private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
+  private loadedSuccesfully: boolean = false;
 
   async onload() {
-    await this.loadSettings();
-    await this.loadCache();
+    try {
+      await this.loadSettings();
+      await this.loadCache();
+      this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
+      this.loadedSuccesfully = true;
+    } catch (e) {
+      console.error(`Unable to load plugin, error: ${e}`);
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
+      new Notice("Cloudflare KV sync plugin failed to load. See console for details.");
+      return;
+    }
 
+    if (this.loadedSuccesfully) {
+      this.registerCommands();
+      this.registerEvents();
+    }
+  }
+
+  private registerCommands() {
+    // eslint-disable-next-line obsidianmd/ui/sentence-case
     this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
-      this.syncAllFiles();
-      this.removeOrphanedUploads();
+      void this.syncAllFiles();
+      void this.removeOrphanedUploads();
     });
 
     this.addCommand({
       id: "sync-current-file-to-kv",
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       name: "Sync current file to Cloudflare KV",
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
-          this.syncSingleFile(activeFile);
+          void this.syncSingleFile(activeFile);
         } else {
           new Notice("No active file to sync");
         }
@@ -83,13 +102,16 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-files-to-kv",
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       name: "Sync all marked files to Cloudflare KV",
       callback: () => {
-        this.syncAllFiles();
-        this.removeOrphanedUploads();
+        void this.syncAllFiles();
+        void this.removeOrphanedUploads();
       }
     });
+  }
 
+  private registerEvents() {
     if (this.settings.autoSync) {
       this.registerEvent(
         this.app.vault.on("modify", (file) => {
@@ -99,24 +121,22 @@ export default class CloudflareKVPlugin extends Plugin {
         })
       );
     }
-
-    this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
   }
 
-  private async debouncedFileSync(file: TFile) {
+  private debouncedFileSync(file: TFile) {
     const existingTimeout = this.syncTimeouts.get(file.path);
     if (existingTimeout) {
       clearTimeout(existingTimeout);
     }
 
-    const timeout = setTimeout(async () => {
-      try {
-        await this.syncSingleFile(file);
-      } catch (error) {
-        console.error("Error in debounced sync:", error);
-      } finally {
-        this.syncTimeouts.delete(file.path);
-      }
+    const timeout = setTimeout(() => {
+      this.syncSingleFile(file)
+        .catch((error) => {
+          console.error("Error in debounced sync:", error);
+        })
+        .finally(() => {
+          this.syncTimeouts.delete(file.path);
+        });
     }, this.settings.debounceDelay * 1000);
 
     this.syncTimeouts.set(file.path, timeout);
@@ -131,11 +151,13 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.saveCache();
 
     if (syncResult.skipped === true) {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       new Notice("ℹ️ File not marked for sync");
     } else if (syncResult.sync) {
       const sync = syncResult.sync;
 
       if (sync.success === true) {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         new Notice("✅ Successful sync");
       } else {
         new Notice(`❌ Error syncing: ${sync.error}`);
@@ -179,8 +201,8 @@ export default class CloudflareKVPlugin extends Plugin {
   private async syncFile(file: TFile): Promise<SyncResult> {
     const result: SyncResult = { ...SKIPPED_SYNC_RESULT };
     const frontmatter = await this.getFrontmatter(file);
-    const syncValue = frontmatter?.[this.settings.syncKey];
-    const docId = frontmatter?.[this.settings.idKey] as string;
+    const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
+    const docId = this.coerceString(frontmatter?.[this.settings.idKey]);
     const fileContent = await this.app.vault.cachedRead(file);
     const previousKVKey = this.syncedFiles.get(file.path);
 
@@ -203,7 +225,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const currentKVKey = this.buildKVKey(frontmatter);
 
-    if (syncValue === true || String(syncValue).toLowerCase() === "true") {
+    if (syncValue) {
       // File is marked for sync
       result.skipped = false;
 
@@ -274,7 +296,10 @@ export default class CloudflareKVPlugin extends Plugin {
       if (!frontmatterMatch) return null;
 
       try {
-        return parseYaml(frontmatterMatch[1]);
+        const raw: unknown = parseYaml(frontmatterMatch[1]);
+        if (raw && typeof raw === "object" && !Array.isArray(raw))
+          return raw as Record<string, unknown>;
+        return null;
       } catch (error) {
         console.error("Error parsing frontmatter:", error);
         return null;
@@ -286,10 +311,20 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private buildKVKey(frontmatter: Record<string, unknown>): string | null {
-    const docId = frontmatter[this.settings.idKey] as string;
-    const collection = frontmatter["collection"] as string;
+    const docId = this.coerceString(frontmatter[this.settings.idKey]);
+    const collection = this.coerceString(frontmatter["collection"]);
 
     return collection ? `${collection}/${docId}` : docId;
+  }
+
+  private coerceBoolean(value: unknown): boolean {
+    if (value === true) return true;
+    if (typeof value === "string") return value.toLowerCase() === "true";
+    return false;
+  }
+
+  private coerceString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim() !== "" ? value : undefined;
   }
 
   private async kvRequest(
@@ -310,13 +345,15 @@ export default class CloudflareKVPlugin extends Plugin {
       ...(body ? { body } : {})
     });
 
-    const data = JSON.parse(response.text);
-
-    if (!data.success) {
-      return { success: false, error: `${JSON.stringify(data.errors)}` };
+    const raw: unknown = JSON.parse(response.text);
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const data = raw as Record<string, unknown>;
+      if (!data.success) {
+        return { success: false, error: `${JSON.stringify(data.errors)}` };
+      }
+      return { success: true };
     }
-
-    return { success: true };
+    throw new Error(`Unexpected response from Cloudflare KV API, response body is ${typeof raw}`);
   }
 
   private async uploadToKV(
@@ -337,7 +374,13 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const raw: unknown = await this.loadData();
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const settingsData = raw as Record<string, unknown>;
+      this.settings = Object.assign({}, DEFAULT_SETTINGS, settingsData);
+    } else {
+      throw new Error(`Unexpected response from settings data load, loadData response is ${typeof raw}`);
+    }
   }
 
   async saveSettings() {
@@ -350,6 +393,7 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.namespaceId ||
       !this.settings.apiToken
     ) {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       new Notice("Cloudflare KV Sync plugin requires configuration");
       return false;
     }
@@ -369,11 +413,25 @@ export default class CloudflareKVPlugin extends Plugin {
       const cacheData = await this.app.vault.adapter.read(
         `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
       );
-      this.cache = Object.assign({}, DEFAULT_CACHE, JSON.parse(cacheData));
-    } catch {
-      this.cache = Object.assign({}, DEFAULT_CACHE);
-    } finally {
+      const raw: unknown = JSON.parse(cacheData);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const parsed = raw as Record<string, unknown>;
+        this.cache = Object.assign({}, DEFAULT_CACHE, parsed);
+      } else {
+        throw new Error(`Unable to parse cache file, parsed object was type ${typeof raw}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("ENOENT")) {
+        this.cache = Object.assign({}, DEFAULT_CACHE);
+      } else {
+        throw e;
+      }
+    }
+
+    try {
       this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
+    } catch (e) {
+      throw new Error(`Failed to read cached data: ${e}`);
     }
   }
 
@@ -391,9 +449,16 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  async onunload() {
-    await this.saveCache();
+  onunload() {
+    if (this.loadedSuccesfully) {
+      this.saveCache().catch((error) => {
+        console.error("Error saving cache to disk: ", error);
+      });
+      this.unregisterEvents();
+    }
+  }
 
+  private unregisterEvents() {
     for (const timeout of this.syncTimeouts.values()) {
       clearTimeout(timeout);
     }
@@ -416,6 +481,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare account ID")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("The Cloudflare account ID that holds the KV namespace")
       .addText((text) =>
         text
@@ -428,7 +494,9 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setName("KV namespace ID")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("The Cloudflare KV namespace ID where your content is stored")
       .addText((text) =>
         text
@@ -442,6 +510,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare API token")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("Your Cloudflare API token with KV read/write permissions")
       .addComponent((el) =>
         new SecretComponent(this.app, el)
@@ -455,6 +524,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync property name")
       .setDesc(
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         "The name of the Boolean property name that determines whether the note will be synced"
       )
       .addText((text) =>
@@ -509,12 +579,13 @@ class CloudflareKVSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Setting up note properties" });
+    new Setting(containerEl).setName("Setting up note properties").setHeading();
     const ol = containerEl.createEl("ol");
     ol.createEl("li", {}, (li) => {
       li.appendText(
         `Set the sync property (default: "${DEFAULT_SETTINGS.syncKey}") to `
       );
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       li.createEl("strong", { text: "true" });
       li.appendText(
         " in note properties to sync a note to your Cloudflare KV namespace."
@@ -525,20 +596,23 @@ class CloudflareKVSettingTab extends PluginSettingTab {
         `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
       );
       li.createEl("a", {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         text: "this plugin",
         href: "obsidian://show-plugin?id=guid-front-matter"
       });
       li.appendText(" to do this automatically.");
     });
     ol.createEl("li", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in KV.'
     });
 
     containerEl.createEl("p", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
     });
 
-    containerEl.createEl("h4", { text: "Example front matter" });
+    new Setting(containerEl).setName("Example front matter").setHeading();
     containerEl.createEl("pre").createEl("code", {
       text: [
         "---",
@@ -551,10 +625,12 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     });
     containerEl.createEl("p", {}, (p) => {
       p.appendText("This would create a KV pair with the key: ");
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       p.createEl("code", { text: "writing/my-unique-post-id" });
     });
     containerEl.createEl("p", {}, (p) => {
       p.appendText("Without the collection property, KV pair key would be: ");
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       p.createEl("code", { text: "my-unique-post-id" });
     });
   }
