@@ -1,9 +1,10 @@
 import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import { defineConfig } from "eslint/config";
 import prettierConfig from "eslint-config-prettier";
 
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: ["**/main.js", "**esbuild**"]
   },
@@ -87,4 +88,4 @@ export default tseslint.config(
     }
   },
   prettierConfig
-);
+]);
