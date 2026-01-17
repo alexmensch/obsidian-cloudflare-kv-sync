@@ -63,6 +63,7 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.loadSettings();
     await this.loadCache();
 
+    // eslint-disable-next-line obsidianmd/ui/sentence-case
     this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
       void this.syncAllFiles();
       void this.removeOrphanedUploads();
@@ -70,6 +71,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-current-file-to-kv",
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       name: "Sync current file to Cloudflare KV",
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
@@ -83,6 +85,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-files-to-kv",
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       name: "Sync all marked files to Cloudflare KV",
       callback: () => {
         void this.syncAllFiles();
@@ -131,11 +134,13 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.saveCache();
 
     if (syncResult.skipped === true) {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       new Notice("ℹ️ File not marked for sync");
     } else if (syncResult.sync) {
       const sync = syncResult.sync;
 
       if (sync.success === true) {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         new Notice("✅ Successful sync");
       } else {
         new Notice(`❌ Error syncing: ${sync.error}`);
@@ -302,6 +307,12 @@ export default class CloudflareKVPlugin extends Plugin {
     return typeof value === "string" && value.trim() !== "" ? value : undefined;
   }
 
+  private coerceObject<T extends object>(value: unknown): T | null {
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as T)
+      : null;
+  }
+
   private async kvRequest(
     key: string,
     method: "PUT" | "DELETE",
@@ -360,6 +371,7 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.namespaceId ||
       !this.settings.apiToken
     ) {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       new Notice("Cloudflare KV Sync plugin requires configuration");
       return false;
     }
@@ -428,6 +440,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare account ID")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("The Cloudflare account ID that holds the KV namespace")
       .addText((text) =>
         text
@@ -440,7 +453,9 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setName("KV namespace ID")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("The Cloudflare KV namespace ID where your content is stored")
       .addText((text) =>
         text
@@ -454,6 +469,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare API token")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       .setDesc("Your Cloudflare API token with KV read/write permissions")
       .addComponent((el) =>
         new SecretComponent(this.app, el)
@@ -467,6 +483,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync property name")
       .setDesc(
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         "The name of the Boolean property name that determines whether the note will be synced"
       )
       .addText((text) =>
@@ -527,6 +544,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       li.appendText(
         `Set the sync property (default: "${DEFAULT_SETTINGS.syncKey}") to `
       );
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       li.createEl("strong", { text: "true" });
       li.appendText(
         " in note properties to sync a note to your Cloudflare KV namespace."
@@ -537,16 +555,19 @@ class CloudflareKVSettingTab extends PluginSettingTab {
         `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
       );
       li.createEl("a", {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         text: "this plugin",
         href: "obsidian://show-plugin?id=guid-front-matter"
       });
       li.appendText(" to do this automatically.");
     });
     ol.createEl("li", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in KV.'
     });
 
     containerEl.createEl("p", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
     });
 
@@ -563,10 +584,12 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     });
     containerEl.createEl("p", {}, (p) => {
       p.appendText("This would create a KV pair with the key: ");
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       p.createEl("code", { text: "writing/my-unique-post-id" });
     });
     containerEl.createEl("p", {}, (p) => {
       p.appendText("Without the collection property, KV pair key would be: ");
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       p.createEl("code", { text: "my-unique-post-id" });
     });
   }

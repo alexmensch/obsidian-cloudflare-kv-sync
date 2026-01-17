@@ -3,6 +3,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
 import prettierConfig from "eslint-config-prettier";
+import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default defineConfig([
   {
@@ -10,14 +11,22 @@ export default defineConfig([
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  ...obsidianmd.configs.recommended,
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: "module",
+        project: "./tsconfig.json"
+      },
       globals: {
         ...globals.node
       }
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin
     },
     rules: {
       // Disable base rules that are covered by TypeScript equivalents
