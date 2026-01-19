@@ -236,7 +236,7 @@ export default class CloudflareKVPlugin extends Plugin {
         this.syncedFiles.delete(file.path);
       }
 
-      result.sync = await this.uploadTokv(currentKVKey, fileContent);
+      result.sync = await this.uploadToKV(currentKVKey, fileContent);
 
       if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
     } else if (previousKVKey) {
@@ -354,7 +354,7 @@ export default class CloudflareKVPlugin extends Plugin {
     );
   }
 
-  private async uploadTokv(
+  private async uploadToKV(
     key: string,
     value: string
   ): Promise<SyncActionResult> {
