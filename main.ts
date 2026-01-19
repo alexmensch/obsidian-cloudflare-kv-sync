@@ -64,12 +64,12 @@ export default class CloudflareKVPlugin extends Plugin {
     try {
       await this.loadSettings();
       await this.loadCache();
-      this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
+      this.addSettingTab(new CloudflareKVSettingsTab(this.app, this));
       this.loadedSuccesfully = true;
     } catch (e) {
       console.error(`Unable to load plugin, error: ${e}`);
       new Notice(
-        "Cloudflare KV sync plugin failed to load. See console for details."
+        "Cloudflare kv sync plugin failed to load. See console for details."
       );
       return;
     }
@@ -81,14 +81,14 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private registerCommands() {
-    this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
+    this.addRibbonIcon("cloud-upload", "Sync to cloudflare kv", () => {
       void this.syncAllFiles();
       void this.removeOrphanedUploads();
     });
 
     this.addCommand({
       id: "sync-current-file-to-kv",
-      name: "Sync current file to Cloudflare KV",
+      name: "Sync current file to cloudflare kv",
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
@@ -101,7 +101,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-files-to-kv",
-      name: "Sync all marked files to Cloudflare KV",
+      name: "Sync all marked files to cloudflare kv",
       callback: () => {
         void this.syncAllFiles();
         void this.removeOrphanedUploads();
@@ -149,14 +149,14 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.saveCache();
 
     if (syncResult.skipped === true) {
-      new Notice("ℹ️ File not marked for sync");
+      new Notice("File not marked for sync");
     } else if (syncResult.sync) {
       const sync = syncResult.sync;
 
       if (sync.success === true) {
-        new Notice("✅ Successful sync");
+        new Notice("Successful sync");
       } else {
-        new Notice(`❌ Error syncing: ${sync.error}`);
+        new Notice(`Error syncing: ${sync.error}`);
       }
     }
   }
@@ -180,7 +180,7 @@ export default class CloudflareKVPlugin extends Plugin {
             successful++;
           } else {
             failed++;
-            console.error(`Cloudflare KV API error: ${syncResult.sync.error}`);
+            console.error(`cloudflare kv API error: ${syncResult.sync.error}`);
           }
         } else if (syncResult.error) {
           failed++;
@@ -230,7 +230,7 @@ export default class CloudflareKVPlugin extends Plugin {
         const deleteResult = await this.deleteFromKV(previousKVKey);
 
         if (deleteResult.success === false) {
-          result.error = `Unable to delete old KV entry: ${deleteResult.error}`;
+          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
           return result;
         }
         this.syncedFiles.delete(file.path);
@@ -269,7 +269,7 @@ export default class CloudflareKVPlugin extends Plugin {
         this.syncedFiles.delete(filePath);
       } else {
         failed++;
-        console.error(`Cloudflare KV API error: ${result.error}`);
+        console.error(`cloudflare kv API error: ${result.error}`);
       }
     }
 
@@ -350,7 +350,7 @@ export default class CloudflareKVPlugin extends Plugin {
       return { success: true };
     }
     throw new Error(
-      `Unexpected response from Cloudflare KV API, response body is ${typeof raw}`
+      `Unexpected response from cloudflare kv API, response body is ${typeof raw}`
     );
   }
 
@@ -393,7 +393,7 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.namespaceId ||
       !this.settings.apiToken
     ) {
-      new Notice("Cloudflare KV Sync plugin requires configuration");
+      new Notice("Cloudflare kv sync plugin requires configuration");
       return false;
     }
 
@@ -467,7 +467,7 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 }
 
-class CloudflareKVSettingTab extends PluginSettingTab {
+class CloudflareKVSettingsTab extends PluginSettingTab {
   plugin: CloudflareKVPlugin;
 
   constructor(app: App, plugin: CloudflareKVPlugin) {
@@ -482,7 +482,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare account ID")
-      .setDesc("The Cloudflare account ID that holds the KV namespace")
+      .setDesc("The cloudflare account ID that holds the kv namespace")
       .addText((text) =>
         text
           .setPlaceholder("Enter your account ID")
@@ -494,8 +494,8 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("KV namespace ID")
-      .setDesc("The Cloudflare KV namespace ID where your content is stored")
+      .setName("Kv namespace ID")
+      .setDesc("The cloudflare kv namespace ID where your content is stored")
       .addText((text) =>
         text
           .setPlaceholder("Enter your namespace ID")
@@ -508,7 +508,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare API token")
-      .setDesc("Your Cloudflare API token with KV read/write permissions")
+      .setDesc("Your cloudflare API token with kv read/write permissions")
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.apiToken)
@@ -521,7 +521,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync property name")
       .setDesc(
-        "The name of the Boolean property name that determines whether the note will be synced"
+        "The name of the boolean property name that determines whether the note will be synced"
       )
       .addText((text) =>
         text
@@ -581,9 +581,9 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       li.appendText(
         `Set the sync property (default: "${DEFAULT_SETTINGS.syncKey}") to `
       );
-      li.createEl("strong", { text: "true" });
+      li.createEl("strong", { text: "True" });
       li.appendText(
-        " in note properties to sync a note to your Cloudflare KV namespace."
+        " in note properties to sync a note to your cloudflare kv namespace."
       );
     });
     ol.createEl("li", {}, (li) => {
@@ -591,17 +591,17 @@ class CloudflareKVSettingTab extends PluginSettingTab {
         `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
       );
       li.createEl("a", {
-        text: "this plugin",
+        text: "This plugin",
         href: "obsidian://show-plugin?id=guid-front-matter"
       });
       li.appendText(" to do this automatically.");
     });
     ol.createEl("li", {
-      text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in KV.'
+      text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in kv.'
     });
 
     containerEl.createEl("p", {
-      text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
+      text: "When synchronising, the state in Obsidian will always take priority over the remote state in kv, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in kv."
     });
 
     new Setting(containerEl).setName("Example front matter").setHeading();
@@ -616,12 +616,12 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       ].join("\n")
     });
     containerEl.createEl("p", {}, (p) => {
-      p.appendText("This would create a KV pair with the key: ");
-      p.createEl("code", { text: "writing/my-unique-post-id" });
+      p.appendText("This would create a kv pair with the key: ");
+      p.createEl("code", { text: "Writing-my-unique-post-id" });
     });
     containerEl.createEl("p", {}, (p) => {
-      p.appendText("Without the collection property, KV pair key would be: ");
-      p.createEl("code", { text: "my-unique-post-id" });
+      p.appendText("Without the collection property, kv pair key would be: ");
+      p.createEl("code", { text: "My-unique-post-id" });
     });
   }
 }
