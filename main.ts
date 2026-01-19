@@ -10,7 +10,7 @@ import {
   requestUrl
 } from "obsidian";
 
-interface CloudflareKVSettings {
+interface cloudflarekvSettings {
   accountId: string;
   namespaceId: string;
   apiToken: string;
@@ -20,13 +20,13 @@ interface CloudflareKVSettings {
   debounceDelay: number;
 }
 
-interface CloudflareKVCache {
+interface cloudflarekvCache {
   syncedFiles: Record<string, string>;
 }
 
-type KVRequestResult = { success: true } | { success: false; error: string };
+type kvRequestResult = { success: true } | { success: false; error: string };
 
-type SyncActionResult = KVRequestResult & {
+type SyncActionResult = kvRequestResult & {
   action: "create" | "delete";
 };
 
@@ -34,7 +34,7 @@ type SyncResult =
   | { skipped: true; error?: string; sync?: undefined }
   | { skipped: false; error?: string; sync?: SyncActionResult };
 
-const DEFAULT_SETTINGS: CloudflareKVSettings = {
+const DEFAULT_SETTINGS: cloudflarekvSettings = {
   accountId: "",
   namespaceId: "",
   apiToken: "",
@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS: CloudflareKVSettings = {
   debounceDelay: 60
 };
 
-const DEFAULT_CACHE: CloudflareKVCache = {
+const DEFAULT_CACHE: cloudflarekvCache = {
   syncedFiles: {}
 };
 
@@ -52,11 +52,11 @@ const SKIPPED_SYNC_RESULT: SyncResult = {
   skipped: true
 };
 
-export default class CloudflareKVPlugin extends Plugin {
-  settings: CloudflareKVSettings;
+export default class cloudflarekvPlugin extends Plugin {
+  settings: cloudflarekvSettings;
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private syncedFiles: Map<string, string> = new Map();
-  private cache: CloudflareKVCache;
+  private cache: cloudflarekvCache;
   private static cacheFile: string = "cache.json";
   private loadedSuccesfully: boolean = false;
 
@@ -64,12 +64,12 @@ export default class CloudflareKVPlugin extends Plugin {
     try {
       await this.loadSettings();
       await this.loadCache();
-      this.addSettingTab(new CloudflareKVSettingTab(this.app, this));
+      this.addSettingTab(new cloudflarekvSettingTab(this.app, this));
       this.loadedSuccesfully = true;
     } catch (e) {
       console.error(`Unable to load plugin, error: ${e}`);
       new Notice(
-        "Cloudflare KV sync plugin failed to load. See console for details."
+        "Cloudflare kv sync plugin failed to load. See console for details."
       );
       return;
     }
@@ -81,14 +81,14 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private registerCommands() {
-    this.addRibbonIcon("cloud-upload", "Sync to Cloudflare KV", () => {
+    this.addRibbonIcon("cloud-upload", "Sync to cloudflare kv", () => {
       void this.syncAllFiles();
       void this.removeOrphanedUploads();
     });
 
     this.addCommand({
       id: "sync-current-file-to-kv",
-      name: "Sync current file to Cloudflare KV",
+      name: "Sync current file to cloudflare kv",
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
@@ -101,7 +101,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     this.addCommand({
       id: "sync-all-files-to-kv",
-      name: "Sync all marked files to Cloudflare KV",
+      name: "Sync all marked files to cloudflare kv",
       callback: () => {
         void this.syncAllFiles();
         void this.removeOrphanedUploads();
@@ -149,14 +149,14 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.saveCache();
 
     if (syncResult.skipped === true) {
-      new Notice("ℹ️ File not marked for sync");
+      new Notice("File not marked for sync");
     } else if (syncResult.sync) {
       const sync = syncResult.sync;
 
       if (sync.success === true) {
-        new Notice("✅ Successful sync");
+        new Notice("Successful sync");
       } else {
-        new Notice(`❌ Error syncing: ${sync.error}`);
+        new Notice(`Error syncing: ${sync.error}`);
       }
     }
   }
@@ -180,7 +180,7 @@ export default class CloudflareKVPlugin extends Plugin {
             successful++;
           } else {
             failed++;
-            console.error(`Cloudflare KV API error: ${syncResult.sync.error}`);
+            console.error(`cloudflare kv API error: ${syncResult.sync.error}`);
           }
         } else if (syncResult.error) {
           failed++;
@@ -200,12 +200,12 @@ export default class CloudflareKVPlugin extends Plugin {
     const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
     const docId = this.coerceString(frontmatter?.[this.settings.idKey]);
     const fileContent = await this.app.vault.cachedRead(file);
-    const previousKVKey = this.syncedFiles.get(file.path);
+    const previouskvKey = this.syncedFiles.get(file.path);
 
-    if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
+    if (previouskvKey && (!frontmatter || !syncValue || !docId)) {
       // File was previously synced, but is now missing metadata needed for sync
       result.skipped = false;
-      result.sync = await this.deleteFromKV(previousKVKey);
+      result.sync = await this.deleteFromkv(previouskvKey);
       if (result.sync.success) this.syncedFiles.delete(file.path);
       return result;
     }
@@ -219,30 +219,30 @@ export default class CloudflareKVPlugin extends Plugin {
       return result;
     }
 
-    const currentKVKey = this.buildKVKey(frontmatter);
+    const currentkvKey = this.buildkvKey(frontmatter);
 
     if (syncValue) {
       // File is marked for sync
       result.skipped = false;
 
-      if (previousKVKey && previousKVKey !== currentKVKey) {
+      if (previouskvKey && previouskvKey !== currentkvKey) {
         // File's sync key has changed
-        const deleteResult = await this.deleteFromKV(previousKVKey);
+        const deleteResult = await this.deleteFromkv(previouskvKey);
 
         if (deleteResult.success === false) {
-          result.error = `Unable to delete old KV entry: ${deleteResult.error}`;
+          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
           return result;
         }
         this.syncedFiles.delete(file.path);
       }
 
-      result.sync = await this.uploadToKV(currentKVKey, fileContent);
+      result.sync = await this.uploadTokv(currentkvKey, fileContent);
 
-      if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
-    } else if (previousKVKey) {
+      if (result.sync.success) this.syncedFiles.set(file.path, currentkvKey);
+    } else if (previouskvKey) {
       // File was previously synced, but no longer marked for sync
       result.skipped = false;
-      result.sync = await this.deleteFromKV(previousKVKey);
+      result.sync = await this.deleteFromkv(previouskvKey);
 
       if (result.sync.success) this.syncedFiles.delete(file.path);
     }
@@ -263,13 +263,13 @@ export default class CloudflareKVPlugin extends Plugin {
     let failed = 0;
 
     for (const { filePath, kvKey } of entriesToRemove) {
-      const result = await this.deleteFromKV(kvKey);
+      const result = await this.deleteFromkv(kvKey);
       if (result.success === true) {
         successful++;
         this.syncedFiles.delete(filePath);
       } else {
         failed++;
-        console.error(`Cloudflare KV API error: ${result.error}`);
+        console.error(`cloudflare kv API error: ${result.error}`);
       }
     }
 
@@ -306,7 +306,7 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  private buildKVKey(frontmatter: Record<string, unknown>): string | null {
+  private buildkvKey(frontmatter: Record<string, unknown>): string | null {
     const docId = this.coerceString(frontmatter[this.settings.idKey]);
     const collection = this.coerceString(frontmatter["collection"]);
 
@@ -327,7 +327,7 @@ export default class CloudflareKVPlugin extends Plugin {
     key: string,
     method: "PUT" | "DELETE",
     body?: string
-  ): Promise<KVRequestResult> {
+  ): Promise<kvRequestResult> {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
     const apiToken = this.app.secretStorage.getSecret(this.settings.apiToken);
 
@@ -350,11 +350,11 @@ export default class CloudflareKVPlugin extends Plugin {
       return { success: true };
     }
     throw new Error(
-      `Unexpected response from Cloudflare KV API, response body is ${typeof raw}`
+      `Unexpected response from cloudflare kv API, response body is ${typeof raw}`
     );
   }
 
-  private async uploadToKV(
+  private async uploadTokv(
     key: string,
     value: string
   ): Promise<SyncActionResult> {
@@ -364,7 +364,7 @@ export default class CloudflareKVPlugin extends Plugin {
     };
   }
 
-  private async deleteFromKV(key: string): Promise<SyncActionResult> {
+  private async deleteFromkv(key: string): Promise<SyncActionResult> {
     return {
       action: "delete",
       ...(await this.kvRequest(key, "DELETE"))
@@ -393,7 +393,7 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.namespaceId ||
       !this.settings.apiToken
     ) {
-      new Notice("Cloudflare KV Sync plugin requires configuration");
+      new Notice("Cloudflare kv sync plugin requires configuration");
       return false;
     }
 
@@ -410,7 +410,7 @@ export default class CloudflareKVPlugin extends Plugin {
   private async loadCache() {
     try {
       const cacheData = await this.app.vault.adapter.read(
-        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
+        `${this.manifest.dir}/${cloudflarekvPlugin.cacheFile}`
       );
       const raw: unknown = JSON.parse(cacheData);
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -442,7 +442,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
       const cacheJson = JSON.stringify(this.cache, null, 2);
       await this.app.vault.adapter.write(
-        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`,
+        `${this.manifest.dir}/${cloudflarekvPlugin.cacheFile}`,
         cacheJson
       );
     } catch (error) {
@@ -467,10 +467,10 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 }
 
-class CloudflareKVSettingTab extends PluginSettingTab {
-  plugin: CloudflareKVPlugin;
+class cloudflarekvSettingTab extends PluginSettingTab {
+  plugin: cloudflarekvPlugin;
 
-  constructor(app: App, plugin: CloudflareKVPlugin) {
+  constructor(app: App, plugin: cloudflarekvPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -482,7 +482,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare account ID")
-      .setDesc("The Cloudflare account ID that holds the KV namespace")
+      .setDesc("The cloudflare account ID that holds the kv namespace")
       .addText((text) =>
         text
           .setPlaceholder("Enter your account ID")
@@ -494,8 +494,8 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("KV namespace ID")
-      .setDesc("The Cloudflare KV namespace ID where your content is stored")
+      .setName("Kv namespace ID")
+      .setDesc("The cloudflare kv namespace ID where your content is stored")
       .addText((text) =>
         text
           .setPlaceholder("Enter your namespace ID")
@@ -508,7 +508,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Cloudflare API token")
-      .setDesc("Your Cloudflare API token with KV read/write permissions")
+      .setDesc("Your cloudflare API token with kv read/write permissions")
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.apiToken)
@@ -521,7 +521,7 @@ class CloudflareKVSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync property name")
       .setDesc(
-        "The name of the Boolean property name that determines whether the note will be synced"
+        "The name of the boolean property name that determines whether the note will be synced"
       )
       .addText((text) =>
         text
@@ -581,9 +581,9 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       li.appendText(
         `Set the sync property (default: "${DEFAULT_SETTINGS.syncKey}") to `
       );
-      li.createEl("strong", { text: "true" });
+      li.createEl("strong", { text: "True" });
       li.appendText(
-        " in note properties to sync a note to your Cloudflare KV namespace."
+        " in note properties to sync a note to your cloudflare kv namespace."
       );
     });
     ol.createEl("li", {}, (li) => {
@@ -591,17 +591,17 @@ class CloudflareKVSettingTab extends PluginSettingTab {
         `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
       );
       li.createEl("a", {
-        text: "this plugin",
+        text: "This plugin",
         href: "obsidian://show-plugin?id=guid-front-matter"
       });
       li.appendText(" to do this automatically.");
     });
     ol.createEl("li", {
-      text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in KV.'
+      text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in kv.'
     });
 
     containerEl.createEl("p", {
-      text: "When synchronising, the state in Obsidian will always take priority over the remote state in KV, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in KV."
+      text: "When synchronising, the state in Obsidian will always take priority over the remote state in kv, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in kv."
     });
 
     new Setting(containerEl).setName("Example front matter").setHeading();
@@ -616,12 +616,12 @@ class CloudflareKVSettingTab extends PluginSettingTab {
       ].join("\n")
     });
     containerEl.createEl("p", {}, (p) => {
-      p.appendText("This would create a KV pair with the key: ");
-      p.createEl("code", { text: "writing/my-unique-post-id" });
+      p.appendText("This would create a kv pair with the key: ");
+      p.createEl("code", { text: "Writing-my-unique-post-id" });
     });
     containerEl.createEl("p", {}, (p) => {
-      p.appendText("Without the collection property, KV pair key would be: ");
-      p.createEl("code", { text: "my-unique-post-id" });
+      p.appendText("Without the collection property, kv pair key would be: ");
+      p.createEl("code", { text: "My-unique-post-id" });
     });
   }
 }
