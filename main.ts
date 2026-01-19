@@ -601,25 +601,28 @@ class CloudflareKVSettingsTab extends PluginSettingTab {
     });
 
     containerEl.createEl("p", {
-      text: "When synchronising, the state in Obsidian will always take priority over the remote state in kv, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in kv."
+      text: "When synchronising, the state in Obsidian will always take priority over the remote state in kv, so you can be sure that the remote state matches what you see in your local vault. Any previously synced notes that no longer exist in Obsidian will be deleted in kv.",
+      cls: "cloudflare-kv-sync-padding"
     });
 
     new Setting(containerEl).setName("Example front matter").setHeading();
-    containerEl.createEl("pre").createEl("code", {
-      text: [
-        "---",
-        "id: my-unique-post-id",
-        "kv_sync: true",
-        "collection: writing",
-        "title: My Blog Post",
-        "---"
-      ].join("\n")
-    });
-    containerEl.createEl("p", {}, (p) => {
+    containerEl
+      .createEl("pre", { cls: "cloudflare-kv-sync-padding" })
+      .createEl("code", {
+        text: [
+          "---",
+          "id: my-unique-post-id",
+          "kv_sync: true",
+          "collection: writing",
+          "title: My Blog Post",
+          "---"
+        ].join("\n")
+      });
+    containerEl.createEl("p", { cls: "cloudflare-kv-sync-padding" }, (p) => {
       p.appendText("This would create a kv pair with the key: ");
       p.createEl("code", { text: "Writing-my-unique-post-id" });
     });
-    containerEl.createEl("p", {}, (p) => {
+    containerEl.createEl("p", { cls: "cloudflare-kv-sync-padding" }, (p) => {
       p.appendText("Without the collection property, kv pair key would be: ");
       p.createEl("code", { text: "My-unique-post-id" });
     });
