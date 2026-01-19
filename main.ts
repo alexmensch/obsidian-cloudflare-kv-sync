@@ -64,7 +64,7 @@ export default class CloudflareKVPlugin extends Plugin {
     try {
       await this.loadSettings();
       await this.loadCache();
-      this.addSettingTab(new cloudflarekvSettingTab(this.app, this));
+      this.addSettingTab(new CloudflareKVSettingsTab(this.app, this));
       this.loadedSuccesfully = true;
     } catch (e) {
       console.error(`Unable to load plugin, error: ${e}`);
@@ -467,7 +467,7 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 }
 
-class cloudflarekvSettingTab extends PluginSettingTab {
+class CloudflareKVSettingsTab extends PluginSettingTab {
   plugin: CloudflareKVPlugin;
 
   constructor(app: App, plugin: CloudflareKVPlugin) {
