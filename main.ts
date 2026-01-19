@@ -10,7 +10,7 @@ import {
   requestUrl
 } from "obsidian";
 
-interface cloudflarekvSettings {
+interface CloudflareKVSettings {
   accountId: string;
   namespaceId: string;
   apiToken: string;
@@ -20,13 +20,13 @@ interface cloudflarekvSettings {
   debounceDelay: number;
 }
 
-interface cloudflarekvCache {
+interface CloudflareKVCache {
   syncedFiles: Record<string, string>;
 }
 
-type kvRequestResult = { success: true } | { success: false; error: string };
+type KVRequestResult = { success: true } | { success: false; error: string };
 
-type SyncActionResult = kvRequestResult & {
+type SyncActionResult = KVRequestResult & {
   action: "create" | "delete";
 };
 
@@ -34,7 +34,7 @@ type SyncResult =
   | { skipped: true; error?: string; sync?: undefined }
   | { skipped: false; error?: string; sync?: SyncActionResult };
 
-const DEFAULT_SETTINGS: cloudflarekvSettings = {
+const DEFAULT_SETTINGS: CloudflareKVSettings = {
   accountId: "",
   namespaceId: "",
   apiToken: "",
@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS: cloudflarekvSettings = {
   debounceDelay: 60
 };
 
-const DEFAULT_CACHE: cloudflarekvCache = {
+const DEFAULT_CACHE: CloudflareKVCache = {
   syncedFiles: {}
 };
 
@@ -52,11 +52,11 @@ const SKIPPED_SYNC_RESULT: SyncResult = {
   skipped: true
 };
 
-export default class cloudflarekvPlugin extends Plugin {
-  settings: cloudflarekvSettings;
+export default class CloudflareKVPlugin extends Plugin {
+  settings: CloudflareKVSettings;
   private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private syncedFiles: Map<string, string> = new Map();
-  private cache: cloudflarekvCache;
+  private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
   private loadedSuccesfully: boolean = false;
 
@@ -200,12 +200,12 @@ export default class cloudflarekvPlugin extends Plugin {
     const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
     const docId = this.coerceString(frontmatter?.[this.settings.idKey]);
     const fileContent = await this.app.vault.cachedRead(file);
-    const previouskvKey = this.syncedFiles.get(file.path);
+    const previousKVKey = this.syncedFiles.get(file.path);
 
-    if (previouskvKey && (!frontmatter || !syncValue || !docId)) {
+    if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
       // File was previously synced, but is now missing metadata needed for sync
       result.skipped = false;
-      result.sync = await this.deleteFromkv(previouskvKey);
+      result.sync = await this.deleteFromkv(previousKVKey);
       if (result.sync.success) this.syncedFiles.delete(file.path);
       return result;
     }
@@ -225,9 +225,9 @@ export default class cloudflarekvPlugin extends Plugin {
       // File is marked for sync
       result.skipped = false;
 
-      if (previouskvKey && previouskvKey !== currentkvKey) {
+      if (previousKVKey && previousKVKey !== currentkvKey) {
         // File's sync key has changed
-        const deleteResult = await this.deleteFromkv(previouskvKey);
+        const deleteResult = await this.deleteFromkv(previousKVKey);
 
         if (deleteResult.success === false) {
           result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
@@ -239,10 +239,10 @@ export default class cloudflarekvPlugin extends Plugin {
       result.sync = await this.uploadTokv(currentkvKey, fileContent);
 
       if (result.sync.success) this.syncedFiles.set(file.path, currentkvKey);
-    } else if (previouskvKey) {
+    } else if (previousKVKey) {
       // File was previously synced, but no longer marked for sync
       result.skipped = false;
-      result.sync = await this.deleteFromkv(previouskvKey);
+      result.sync = await this.deleteFromkv(previousKVKey);
 
       if (result.sync.success) this.syncedFiles.delete(file.path);
     }
@@ -327,7 +327,7 @@ export default class cloudflarekvPlugin extends Plugin {
     key: string,
     method: "PUT" | "DELETE",
     body?: string
-  ): Promise<kvRequestResult> {
+  ): Promise<KVRequestResult> {
     const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
     const apiToken = this.app.secretStorage.getSecret(this.settings.apiToken);
 
@@ -410,7 +410,7 @@ export default class cloudflarekvPlugin extends Plugin {
   private async loadCache() {
     try {
       const cacheData = await this.app.vault.adapter.read(
-        `${this.manifest.dir}/${cloudflarekvPlugin.cacheFile}`
+        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
       );
       const raw: unknown = JSON.parse(cacheData);
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -442,7 +442,7 @@ export default class cloudflarekvPlugin extends Plugin {
 
       const cacheJson = JSON.stringify(this.cache, null, 2);
       await this.app.vault.adapter.write(
-        `${this.manifest.dir}/${cloudflarekvPlugin.cacheFile}`,
+        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`,
         cacheJson
       );
     } catch (error) {
@@ -468,9 +468,9 @@ export default class cloudflarekvPlugin extends Plugin {
 }
 
 class cloudflarekvSettingTab extends PluginSettingTab {
-  plugin: cloudflarekvPlugin;
+  plugin: CloudflareKVPlugin;
 
-  constructor(app: App, plugin: cloudflarekvPlugin) {
+  constructor(app: App, plugin: CloudflareKVPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
