@@ -205,7 +205,7 @@ export default class CloudflareKVPlugin extends Plugin {
     if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
       // File was previously synced, but is now missing metadata needed for sync
       result.skipped = false;
-      result.sync = await this.deleteFromkv(previousKVKey);
+      result.sync = await this.deleteFromKV(previousKVKey);
       if (result.sync.success) this.syncedFiles.delete(file.path);
       return result;
     }
@@ -219,15 +219,15 @@ export default class CloudflareKVPlugin extends Plugin {
       return result;
     }
 
-    const currentkvKey = this.buildkvKey(frontmatter);
+    const currentKVKey = this.buildKVKey(frontmatter);
 
     if (syncValue) {
       // File is marked for sync
       result.skipped = false;
 
-      if (previousKVKey && previousKVKey !== currentkvKey) {
+      if (previousKVKey && previousKVKey !== currentKVKey) {
         // File's sync key has changed
-        const deleteResult = await this.deleteFromkv(previousKVKey);
+        const deleteResult = await this.deleteFromKV(previousKVKey);
 
         if (deleteResult.success === false) {
           result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
@@ -236,13 +236,13 @@ export default class CloudflareKVPlugin extends Plugin {
         this.syncedFiles.delete(file.path);
       }
 
-      result.sync = await this.uploadTokv(currentkvKey, fileContent);
+      result.sync = await this.uploadTokv(currentKVKey, fileContent);
 
-      if (result.sync.success) this.syncedFiles.set(file.path, currentkvKey);
+      if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
     } else if (previousKVKey) {
       // File was previously synced, but no longer marked for sync
       result.skipped = false;
-      result.sync = await this.deleteFromkv(previousKVKey);
+      result.sync = await this.deleteFromKV(previousKVKey);
 
       if (result.sync.success) this.syncedFiles.delete(file.path);
     }
@@ -263,7 +263,7 @@ export default class CloudflareKVPlugin extends Plugin {
     let failed = 0;
 
     for (const { filePath, kvKey } of entriesToRemove) {
-      const result = await this.deleteFromkv(kvKey);
+      const result = await this.deleteFromKV(kvKey);
       if (result.success === true) {
         successful++;
         this.syncedFiles.delete(filePath);
@@ -306,7 +306,7 @@ export default class CloudflareKVPlugin extends Plugin {
     }
   }
 
-  private buildkvKey(frontmatter: Record<string, unknown>): string | null {
+  private buildKVKey(frontmatter: Record<string, unknown>): string | null {
     const docId = this.coerceString(frontmatter[this.settings.idKey]);
     const collection = this.coerceString(frontmatter["collection"]);
 
@@ -364,7 +364,7 @@ export default class CloudflareKVPlugin extends Plugin {
     };
   }
 
-  private async deleteFromkv(key: string): Promise<SyncActionResult> {
+  private async deleteFromKV(key: string): Promise<SyncActionResult> {
     return {
       action: "delete",
       ...(await this.kvRequest(key, "DELETE"))
