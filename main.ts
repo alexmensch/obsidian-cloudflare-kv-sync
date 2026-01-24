@@ -92,7 +92,7 @@ export default class CloudflareKVPlugin extends Plugin {
       callback: () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile) {
-          void this.syncSingleFile(activeFile);
+          void this.syncSingleFile(activeFile, true);
         } else {
           new Notice("No active file to sync");
         }
@@ -140,7 +140,7 @@ export default class CloudflareKVPlugin extends Plugin {
     this.syncTimeouts.set(file.path, timeout);
   }
 
-  private async syncSingleFile(file: TFile) {
+  private async syncSingleFile(file: TFile, notifyOutcome: boolean = false) {
     if (!this.validateSettings()) {
       return;
     }
@@ -149,14 +149,14 @@ export default class CloudflareKVPlugin extends Plugin {
     await this.saveCache();
 
     if (syncResult.skipped === true) {
-      new Notice("File not marked for sync");
+      if (notifyOutcome) new Notice("File not marked for sync");
     } else if (syncResult.sync) {
       const sync = syncResult.sync;
 
       if (sync.success === true) {
-        new Notice("Successful sync");
+        if (notifyOutcome) new Notice("Successful sync");
       } else {
-        new Notice(`Error syncing: ${sync.error}`);
+        if (notifyOutcome) new Notice(`Error syncing: ${sync.error}`);
       }
     }
   }
