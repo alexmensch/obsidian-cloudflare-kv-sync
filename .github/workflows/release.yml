@@ -23,13 +23,23 @@ jobs:
           npm install
           npm run build
 
+      - name: Derive tag
+        run: |
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "PLUGIN_NAME=cloudflare-kv-sync" >> $GITHUB_ENV
+          echo "DIST_DIR=dist" >> $GITHUB_ENV
+
+      - name: Package release zip
+        run: |
+          mkdir "$PLUGIN_NAME"
+          cp $DIST_DIR/* "$PLUGIN_NAME/"
+          zip -r "$PLUGIN_NAME-$TAG.zip" "$PLUGIN_NAME"
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
-
-          gh release create "$tag" \
-            --title="$tag" \
+          gh release create "$TAG" \
+            --title="$TAG" \
             --draft \
-            main.js manifest.json versions.json styles.css
+            $DIST_DIR/* "$PLUGIN_NAME-$TAG.zip"
