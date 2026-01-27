@@ -166,6 +166,8 @@ export default class CloudflareKVPlugin extends Plugin {
       return;
     }
 
+    new Notice("Syncing all notes in your vault...");
+
     const files = this.app.vault.getMarkdownFiles();
 
     let successful = 0;
@@ -373,13 +375,17 @@ export default class CloudflareKVPlugin extends Plugin {
 
   private async loadSettings() {
     const raw: unknown = await this.loadData();
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      const settingsData = raw as Record<string, unknown>;
-      this.settings = Object.assign({}, DEFAULT_SETTINGS, settingsData);
+    if (raw === null) {
+      this.settings = Object.assign({}, DEFAULT_SETTINGS);
     } else {
-      throw new Error(
-        `Unexpected response from settings data load, loadData response is ${typeof raw}`
-      );
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const settingsData = raw as Record<string, unknown>;
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, settingsData);
+      } else {
+        throw new Error(
+          `Unexpected response from settings data load, loadData response is ${typeof raw}`
+        );
+      }
     }
   }
 
