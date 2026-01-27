@@ -1,6 +1,6 @@
 {
   "name": "obsidian-cloudflare-kv-sync",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Obsidian plugin to automatically sync Markdown files to Cloudflare KV storage.",
   "main": "main.js",
   "type": "module",
