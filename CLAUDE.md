@@ -9,13 +9,13 @@ Obsidian plugin that syncs markdown files to Cloudflare KV storage based on fron
 ## Build & Development Commands
 
 ```bash
-npm run dev        # Watch mode - rebuilds on file changes
-npm run build      # Production build (typecheck + esbuild + copy assets)
-npm run test       # Run Jest test suite
-npm run lint       # ESLint check
-npm run lint:fix   # Auto-fix ESLint violations
-npm run format     # Prettier formatting
-npm run version    # Bump version in manifest and versions.json
+pnpm run dev        # Watch mode - rebuilds on file changes
+pnpm run build      # Production build (typecheck + esbuild + copy assets)
+pnpm run test       # Run Jest test suite
+pnpm run lint       # ESLint check
+pnpm run lint:fix   # Auto-fix ESLint violations
+pnpm run format     # Prettier formatting
+pnpm run version    # Bump version in manifest and versions.json
 ```
 
 Package manager: pnpm
