@@ -10,6 +10,9 @@ main.js
 *.js.map
 dist/
 
+# Test coverage
+coverage/
+
 # OS generated files
 .DS_Store
 .DS_Store?
