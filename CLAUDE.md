@@ -11,6 +11,7 @@ Obsidian plugin that syncs markdown files to Cloudflare KV storage based on fron
 ```bash
 npm run dev        # Watch mode - rebuilds on file changes
 npm run build      # Production build (typecheck + esbuild + copy assets)
+npm run test       # Run Jest test suite
 npm run lint       # ESLint check
 npm run lint:fix   # Auto-fix ESLint violations
 npm run format     # Prettier formatting
@@ -67,7 +68,18 @@ Production build outputs to `dist/`:
 - Prettier formatting (80 char lines, double quotes, 2-space indent)
 - Helper functions for type coercion: `coerceBoolean()`, `coerceString()`
 - Unused parameters prefixed with `_`
-- No test suite - manual testing in Obsidian
+
+## Testing
+
+Jest test suite with 90%+ coverage threshold. Tests are in `tests/` directory:
+
+- `tests/unit/` - Unit tests for utilities, frontmatter parsing, settings, cache, debounce
+- `tests/integration/` - Integration tests for sync operations and orphan cleanup
+- `tests/mocks/` - Mock factories for Obsidian and Cloudflare APIs
+- `tests/helpers/` - Test utilities including plugin instance creation
+- `src/__mocks__/obsidian.ts` - Complete Obsidian API mock
+
+Settings UI (`CloudflareKVSettingsTab`) is excluded from test coverage.
 
 ## Release Process
 
