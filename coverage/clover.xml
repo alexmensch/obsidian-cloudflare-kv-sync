@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1770033469092" clover="3.2.0">
-  <project timestamp="1770033469092" name="All files">
+<coverage generated="1770033634480" clover="3.2.0">
+  <project timestamp="1770033634480" name="All files">
     <metrics statements="190" coveredstatements="186" conditionals="130" coveredconditionals="124" methods="31" coveredmethods="30" elements="351" coveredelements="340" complexity="0" loc="190" ncloc="190" packages="1" files="1" classes="1"/>
     <file name="main.ts" path="/Users/alexm/github/alexmensch/obsidian-cloudflare-kv-sync/main.ts">
       <metrics statements="190" coveredstatements="186" conditionals="130" coveredconditionals="124" methods="31" coveredmethods="30"/>

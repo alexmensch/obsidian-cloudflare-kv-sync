@@ -27,12 +27,7 @@ module.exports = {
     "^.+\\.ts$": [
       "ts-jest",
       {
-        tsconfig: {
-          module: "commonjs",
-          esModuleInterop: true,
-          skipLibCheck: true
-        },
-        isolatedModules: true
+        tsconfig: "tsconfig.jest.json"
       }
     ]
   }
