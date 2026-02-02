@@ -223,32 +223,23 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const currentKVKey = this.buildKVKey(frontmatter);
 
-    if (syncValue) {
-      // File is marked for sync
-      result.skipped = false;
+    // File is marked for sync (syncValue guaranteed true at this point)
+    result.skipped = false;
 
-      if (previousKVKey && previousKVKey !== currentKVKey) {
-        // File's sync key has changed
-        const deleteResult = await this.deleteFromKV(previousKVKey);
+    if (previousKVKey && previousKVKey !== currentKVKey) {
+      // File's sync key has changed
+      const deleteResult = await this.deleteFromKV(previousKVKey);
 
-        if (deleteResult.success === false) {
-          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
-          return result;
-        }
-        this.syncedFiles.delete(file.path);
+      if (deleteResult.success === false) {
+        result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
+        return result;
       }
-
-      result.sync = await this.uploadToKV(currentKVKey, fileContent);
-
-      if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
-      /* istanbul ignore else */
-    } else if (previousKVKey) {
-      // Unreachable: syncValue is always true at this point (checked at line 218)
-      result.skipped = false;
-      result.sync = await this.deleteFromKV(previousKVKey);
-
-      if (result.sync.success) this.syncedFiles.delete(file.path);
+      this.syncedFiles.delete(file.path);
     }
+
+    result.sync = await this.uploadToKV(currentKVKey, fileContent);
+
+    if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
 
     return result;
   }
