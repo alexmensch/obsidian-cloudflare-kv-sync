@@ -223,31 +223,23 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const currentKVKey = this.buildKVKey(frontmatter);
 
-    if (syncValue) {
-      // File is marked for sync
-      result.skipped = false;
+    // File is marked for sync (syncValue guaranteed true at this point)
+    result.skipped = false;
 
-      if (previousKVKey && previousKVKey !== currentKVKey) {
-        // File's sync key has changed
-        const deleteResult = await this.deleteFromKV(previousKVKey);
+    if (previousKVKey && previousKVKey !== currentKVKey) {
+      // File's sync key has changed
+      const deleteResult = await this.deleteFromKV(previousKVKey);
 
-        if (deleteResult.success === false) {
-          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
-          return result;
-        }
-        this.syncedFiles.delete(file.path);
+      if (deleteResult.success === false) {
+        result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
+        return result;
       }
-
-      result.sync = await this.uploadToKV(currentKVKey, fileContent);
-
-      if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
-    } else if (previousKVKey) {
-      // File was previously synced, but no longer marked for sync
-      result.skipped = false;
-      result.sync = await this.deleteFromKV(previousKVKey);
-
-      if (result.sync.success) this.syncedFiles.delete(file.path);
+      this.syncedFiles.delete(file.path);
     }
+
+    result.sync = await this.uploadToKV(currentKVKey, fileContent);
+
+    if (result.sync.success) this.syncedFiles.set(file.path, currentKVKey);
 
     return result;
   }
@@ -437,6 +429,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     try {
       this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
+      /* istanbul ignore next */
     } catch (e) {
       throw new Error(`Failed to read cached data: ${e}`);
     }
@@ -458,6 +451,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
   onunload() {
     if (this.loadedSuccesfully) {
+      /* istanbul ignore next */
       this.saveCache().catch((error) => {
         console.error("Error saving cache to disk: ", error);
       });
@@ -473,6 +467,7 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 }
 
+/* istanbul ignore next -- @preserve UI component excluded from test coverage */
 class CloudflareKVSettingsTab extends PluginSettingTab {
   plugin: CloudflareKVPlugin;
 

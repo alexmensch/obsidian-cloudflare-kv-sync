@@ -1,5 +1,8 @@
 # Obsidian Cloudflare KV Sync
 
+[![CI](https://github.com/alexmensch/obsidian-cloudflare-kv-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/alexmensch/obsidian-cloudflare-kv-sync/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/alexmensch/obsidian-cloudflare-kv-sync/graph/badge.svg)](https://codecov.io/gh/alexmensch/obsidian-cloudflare-kv-sync)
+
 An Obsidian plugin that automatically syncs markdown files to Cloudflare KV storage based on Frontmatter configuration. Perfect for pulling content into a static site generator such as Eleventy, using Cloudflare KV as a bare bones CMS.
 
 ## Features

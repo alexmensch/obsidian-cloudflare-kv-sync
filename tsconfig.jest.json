@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true
+  },
+  "include": ["main.ts", "tests/**/*.ts", "src/__mocks__/**/*.ts"]
+}
