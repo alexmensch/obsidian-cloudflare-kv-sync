@@ -219,10 +219,10 @@ export default class CloudflareKVPlugin extends Plugin {
     let frontmatter = await this.getFrontmatter(file);
     const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
     let docId = this.coerceString(frontmatter?.[this.settings.idKey]);
-    const previousKVKey = this.syncedFiles.get(file.path);
+    let previousKVKey = this.syncedFiles.get(file.path);
 
-    if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
-      // File was previously synced, but is now missing metadata needed for sync
+    if (previousKVKey && (!frontmatter || !syncValue)) {
+      // File was previously synced, but now lacks frontmatter or sync flag
       result.skipped = false;
       result.sync = await this.deleteFromKV(previousKVKey);
       if (result.sync.success) this.syncedFiles.delete(file.path);
@@ -234,6 +234,17 @@ export default class CloudflareKVPlugin extends Plugin {
     }
     if (!syncValue) return result;
     if (!docId) {
+      if (previousKVKey) {
+        // ID was removed from a previously synced file — delete old key first
+        result.skipped = false;
+        const deleteResult = await this.deleteFromKV(previousKVKey);
+        if (deleteResult.success === false) {
+          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
+          return result;
+        }
+        this.syncedFiles.delete(file.path);
+        previousKVKey = undefined;
+      }
       docId = await this.assignIdToFile(file);
       frontmatter = await this.getFrontmatter(file);
       if (!frontmatter) {

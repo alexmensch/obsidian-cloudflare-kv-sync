@@ -6,7 +6,10 @@ import {
   getPrivateProperty
 } from "../helpers/plugin-test-helper";
 import { createMockTFile } from "../mocks/obsidian-mocks";
-import { mockSuccessResponse } from "../mocks/cloudflare-mocks";
+import {
+  mockSuccessResponse,
+  mockErrorResponse
+} from "../mocks/cloudflare-mocks";
 
 type SyncResult =
   | { skipped: true; error?: string; sync?: undefined }
@@ -93,6 +96,81 @@ describe("Auto-assign ID", () => {
         url: expect.stringContaining("/values/existing-id")
       })
     );
+  });
+
+  it("should delete old key and assign new ID when previously synced file loses id", async () => {
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
+    syncedFiles.set("test.md", "old-key");
+
+    const file = createMockTFile("test.md");
+    const newId = "new-generated-uuid";
+
+    (plugin.app.vault.cachedRead as jest.Mock)
+      .mockResolvedValueOnce("---\nkv_sync: true\n---\nContent")
+      .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${newId}\n---\nContent`)
+      .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${newId}\n---\nContent`);
+
+    (parseYaml as jest.Mock)
+      .mockReturnValueOnce({ kv_sync: true })
+      .mockReturnValueOnce({ kv_sync: true, id: newId });
+
+    (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(
+      undefined
+    );
+    (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+    const result = await syncFile(file);
+
+    expect(result.skipped).toBe(false);
+    expect(requestUrl).toHaveBeenCalledTimes(2);
+    expect(requestUrl).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        method: "DELETE",
+        url: expect.stringContaining("/values/old-key")
+      })
+    );
+    expect(requestUrl).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "PUT",
+        url: expect.stringContaining(`/values/${newId}`)
+      })
+    );
+    expect(result.sync?.action).toBe("create");
+    expect(result.sync?.success).toBe(true);
+    expect(syncedFiles.get(file.path)).toBe(newId);
+  });
+
+  it("should return error when old key deletion fails during ID reassignment", async () => {
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
+    syncedFiles.set("test.md", "old-key");
+
+    const file = createMockTFile("test.md");
+
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\n---\nContent"
+    );
+    (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true });
+    (requestUrl as jest.Mock).mockResolvedValue(
+      mockErrorResponse([{ code: 10000, message: "Delete failed" }])
+    );
+
+    const result = await syncFile(file);
+
+    expect(result.skipped).toBe(false);
+    expect(result.error).toContain("Unable to delete old kv entry");
+    expect(result.sync).toBeUndefined();
+    // Should only have called DELETE, not PUT
+    expect(requestUrl).toHaveBeenCalledTimes(1);
+    // Cache should still have the old key
+    expect(syncedFiles.get(file.path)).toBe("old-key");
   });
 
   it("should return error when frontmatter re-read fails after ID assignment", async () => {
