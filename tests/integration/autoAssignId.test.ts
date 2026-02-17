@@ -95,6 +95,28 @@ describe("Auto-assign ID", () => {
     );
   });
 
+  it("should return error when frontmatter re-read fails after ID assignment", async () => {
+    const file = createMockTFile("test.md");
+
+    // First read: has frontmatter with kv_sync but no id
+    // Second read (after assignIdToFile): no frontmatter
+    (plugin.app.vault.cachedRead as jest.Mock)
+      .mockResolvedValueOnce("---\nkv_sync: true\n---\nContent")
+      .mockResolvedValueOnce("Content without frontmatter");
+
+    (parseYaml as jest.Mock).mockReturnValueOnce({ kv_sync: true });
+
+    (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(
+      undefined
+    );
+
+    const result = await syncFile(file);
+
+    expect(result.skipped).toBe(true);
+    expect(result.error).toContain("No frontmatter found");
+    expect(requestUrl).not.toHaveBeenCalled();
+  });
+
   it("should use the generated ID for the KV key", async () => {
     const file = createMockTFile("test.md");
     const generatedId = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
