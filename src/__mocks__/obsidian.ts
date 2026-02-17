@@ -68,6 +68,7 @@ export class Vault {
 }
 
 export class DataAdapter {
+  exists = jest.fn().mockResolvedValue(false);
   read = jest.fn().mockResolvedValue("");
   write = jest.fn().mockResolvedValue(undefined);
 }

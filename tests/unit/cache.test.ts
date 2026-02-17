@@ -20,12 +20,9 @@ describe("loadCache", () => {
     expect(syncedFiles.get("path/to/file.md")).toBe("collection/doc-id");
   });
 
-  it("should create empty cache when file does not exist (ENOENT)", async () => {
+  it("should create empty cache when file does not exist", async () => {
     const plugin = await createTestPlugin();
-    // Default createTestPlugin with ENOENT handling
-    (plugin.app.vault.adapter.read as jest.Mock).mockRejectedValue(
-      new Error("ENOENT: no such file or directory")
-    );
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 
     await (plugin as unknown as { loadCache: () => Promise<void> }).loadCache();
 
@@ -35,6 +32,7 @@ describe("loadCache", () => {
 
   it("should throw error for invalid JSON in cache file", async () => {
     const plugin = await createTestPlugin();
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
     (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue("not valid json");
 
     await expect(
@@ -44,6 +42,7 @@ describe("loadCache", () => {
 
   it("should throw error when cache is an array", async () => {
     const plugin = await createTestPlugin();
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
     (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(
       JSON.stringify([{ unexpected: "array" }])
     );
@@ -55,6 +54,7 @@ describe("loadCache", () => {
 
   it("should throw error when cache is a primitive", async () => {
     const plugin = await createTestPlugin();
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
     (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(
       JSON.stringify("just a string")
     );
@@ -91,16 +91,17 @@ describe("loadCache", () => {
     expect(syncedFiles.size).toBe(0);
   });
 
-  it("should read from correct cache file path", async () => {
+  it("should check existence and read from correct cache file path", async () => {
     const plugin = await createTestPlugin();
+    const cachePath = ".obsidian/plugins/cloudflare-kv-sync/cache.json";
 
-    expect(plugin.app.vault.adapter.read).toHaveBeenCalledWith(
-      ".obsidian/plugins/cloudflare-kv-sync/cache.json"
-    );
+    expect(plugin.app.vault.adapter.exists).toHaveBeenCalledWith(cachePath);
+    expect(plugin.app.vault.adapter.read).toHaveBeenCalledWith(cachePath);
   });
 
-  it("should propagate non-ENOENT errors", async () => {
+  it("should propagate read errors when cache file exists", async () => {
     const plugin = await createTestPlugin();
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
     (plugin.app.vault.adapter.read as jest.Mock).mockRejectedValue(
       new Error("Permission denied")
     );
