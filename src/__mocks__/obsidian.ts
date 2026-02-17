@@ -32,15 +32,28 @@ export class PluginSettingTab {
   hide(): void {}
 }
 
+export class FileManager {
+  processFrontMatter = jest
+    .fn()
+    .mockImplementation(
+      async (
+        _file: TFile,
+        _fn: (frontmatter: Record<string, unknown>) => void
+      ): Promise<void> => {}
+    );
+}
+
 export class App {
   vault: Vault;
   workspace: Workspace;
   secretStorage: SecretStorage;
+  fileManager: FileManager;
 
   constructor() {
     this.vault = new Vault();
     this.workspace = new Workspace();
     this.secretStorage = new SecretStorage();
+    this.fileManager = new FileManager();
   }
 }
 

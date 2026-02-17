@@ -7,7 +7,6 @@ import {
 } from "../helpers/plugin-test-helper";
 import { createMockTFile, createMockNotice } from "../mocks/obsidian-mocks";
 import { mockSuccessResponse } from "../mocks/cloudflare-mocks";
-import { getConsoleErrorMock } from "../setup";
 
 describe("Plugin lifecycle", () => {
   describe("onload", () => {

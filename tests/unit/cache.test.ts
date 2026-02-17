@@ -150,12 +150,16 @@ describe("saveCache", () => {
     (plugin.app.vault.adapter.write as jest.Mock).mockRejectedValue(
       new Error("Write failed")
     );
+    (plugin.app.vault.adapter.exists as jest.Mock).mockRejectedValue(
+      new Error("Write failed")
+    );
 
     // Should not throw
     await (plugin as unknown as { saveCache: () => Promise<void> }).saveCache();
 
+    // writeErrorLog falls back to console.error when vault API fails
     expect(getConsoleErrorMock()).toHaveBeenCalledWith(
-      "Error saving cache:",
+      "Failed to write error log:",
       expect.any(Error)
     );
   });

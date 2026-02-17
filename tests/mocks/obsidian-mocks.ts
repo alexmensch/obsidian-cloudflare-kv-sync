@@ -5,6 +5,7 @@ import {
   Vault,
   TFile,
   DataAdapter,
+  FileManager,
   SecretStorage,
   Notice,
   requestUrl,
@@ -88,6 +89,52 @@ export function createMockApp(options?: {
   secretStorage.getSecret = jest.fn().mockImplementation((key: string) => {
     return secrets.get(key);
   });
+
+  // Setup file manager
+  const fileManager = app.fileManager as jest.Mocked<FileManager>;
+  fileManager.processFrontMatter = jest
+    .fn()
+    .mockImplementation(
+      async (
+        file: TFile,
+        fn: (frontmatter: Record<string, unknown>) => void
+      ) => {
+        // Parse existing frontmatter from file content
+        const content = files.get(file.path) || "";
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        const frontmatter: Record<string, unknown> = {};
+        if (fmMatch) {
+          const lines = fmMatch[1].split("\n");
+          for (const line of lines) {
+            const colonIdx = line.indexOf(":");
+            if (colonIdx > 0) {
+              const key = line.substring(0, colonIdx).trim();
+              let val: unknown = line.substring(colonIdx + 1).trim();
+              if (val === "true") val = true;
+              else if (val === "false") val = false;
+              else if (val === "") val = undefined;
+              frontmatter[key] = val;
+            }
+          }
+        }
+
+        // Execute callback
+        fn(frontmatter);
+
+        // Rebuild file content with updated frontmatter
+        const bodyMatch = content.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
+        const body = bodyMatch ? bodyMatch[1] : content;
+        const fmLines = ["---"];
+        for (const [key, value] of Object.entries(frontmatter)) {
+          if (value !== undefined) {
+            fmLines.push(`${key}: ${value}`);
+          }
+        }
+        fmLines.push("---");
+        const newContent = body ? fmLines.join("\n") + "\n" + body : fmLines.join("\n");
+        files.set(file.path, newContent);
+      }
+    );
 
   return app;
 }

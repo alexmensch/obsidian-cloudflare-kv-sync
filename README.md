@@ -8,8 +8,11 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 ## Features
 
 - **Automatic syncing**: Files marked with a sync flag automatically upload when modified
+- **Auto-generated IDs**: Unique document IDs are automatically assigned when missing
+- **Duplicate detection**: Detects and auto-corrects duplicate KV keys during full sync
 - **Collection support**: Organize KV keys with optional collection prefixes
 - **Smart key management**: Handles collection changes and removes old keys automatically
+- **Error log**: Errors are logged to a persistent file in your vault root
 - **Manual controls**: Ribbon icon and commands for manual operations
 - **Configurable**: Customize sync keys, ID fields, and sync behavior
 - **Debounced uploads**: Prevents excessive API calls during rapid editing
@@ -62,7 +65,19 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 
 ### Basic Syncing
 
-Add the sync flag to your markdown frontmatter:
+Add the sync flag to your markdown frontmatter. A unique ID will be automatically generated if you don't provide one:
+
+```yaml
+---
+kv_sync: true
+title: My Amazing Post
+---
+Your content here...
+```
+
+The plugin will auto-generate an `id` field (a UUID) and sync the file to KV.
+
+You can also set your own ID manually — it will be preserved as-is:
 
 ```yaml
 ---
@@ -73,7 +88,7 @@ title: My Amazing Post
 Your content here...
 ```
 
-The file will automatically sync to KV with key: `my-unique-post-id`
+The file will sync to KV with key: `my-unique-post-id`
 
 ### Collection Organization
 
@@ -110,13 +125,27 @@ This creates KV key: `writing/my-blog-post`
 | Setting        | Default   | Description                                 |
 | -------------- | --------- | ------------------------------------------- |
 | Sync Key       | `kv_sync` | Frontmatter key to check for sync flag      |
-| ID Key         | `id`      | Frontmatter key containing document ID      |
+| ID Key         | `id`      | Frontmatter key containing document ID (auto-generated if empty) |
 | Auto-sync      | `true`    | Automatically sync files on modification    |
 | Debounce Delay | `2000ms`  | Wait time before syncing after file changes |
 
 ## Examples
 
-### Simple Blog Post
+### Simple Blog Post (auto-generated ID)
+
+```yaml
+---
+kv_sync: true
+title: Hello World
+date: 2024-01-15
+---
+# Hello World
+This is my first post!
+```
+
+**KV Key**: auto-generated UUID (e.g. `a1b2c3d4-e5f6-7890-abcd-ef1234567890`)
+
+### Blog Post with Manual ID
 
 ```yaml
 ---
@@ -162,14 +191,15 @@ This won't be synced to KV.
 
 ### Common Issues
 
-- **Files not syncing**: Check that `kv_sync: true` and ID field exist in frontmatter
+- **Files not syncing**: Check that `kv_sync: true` exists in frontmatter (an `id` will be auto-generated if missing)
 - **API errors**: Verify your Account ID, Namespace ID, and API token
 - **Permission errors**: Ensure API token has Cloudflare Workers:Edit permission
 - **Old keys remaining**: Plugin automatically cleans up when collections change
+- **Duplicate IDs**: The plugin detects duplicate KV keys during full sync and auto-assigns new IDs to resolve conflicts
 
 ### Debug Steps
 
-1. Check Obsidian console for error messages (Ctrl+Shift+I)
+1. Check the `Cloudflare KV Sync error log.md` file in your vault root for error details
 2. Verify Cloudflare KV namespace exists and is accessible
 3. Test API token permissions in Cloudflare dashboard
 4. Ensure frontmatter is valid YAML syntax

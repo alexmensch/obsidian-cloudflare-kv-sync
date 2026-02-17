@@ -7,7 +7,6 @@ import {
 } from "../helpers/plugin-test-helper";
 import { createMockTFile } from "../mocks/obsidian-mocks";
 import { mockSuccessResponse } from "../mocks/cloudflare-mocks";
-import { getConsoleErrorMock } from "../setup";
 
 describe("debouncedFileSync", () => {
   let plugin: CloudflareKVPlugin;
@@ -128,16 +127,19 @@ describe("debouncedFileSync", () => {
     // Make the upload fail
     (requestUrl as jest.Mock).mockRejectedValue(new Error("Network error"));
 
+    // Mock error log adapter calls
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
+
     const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
 
     debouncedFileSync(file);
 
     await jest.advanceTimersByTimeAsync(60000);
 
-    // Should have logged an error
-    expect(getConsoleErrorMock()).toHaveBeenCalledWith(
-      "Error in debounced sync:",
-      expect.any(Error)
+    // Should have written to error log
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+      "Cloudflare KV Sync error log.md",
+      expect.stringContaining("Error in debounced sync of test.md")
     );
   });
 

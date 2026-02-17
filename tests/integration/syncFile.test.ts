@@ -11,6 +11,8 @@ import {
   mockErrorResponse
 } from "../mocks/cloudflare-mocks";
 
+const GENERATED_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
 type SyncResult =
   | { skipped: true; error?: string; sync?: undefined }
   | { skipped: false; error?: string; sync?: { action: string; success: boolean; error?: string } };
@@ -69,30 +71,42 @@ describe("syncFile", () => {
     });
   });
 
-  describe("Sync flag but no ID", () => {
-    it("should return error when kv_sync is true but id is missing", async () => {
+  describe("Sync flag but no ID (auto-assign)", () => {
+    it("should auto-assign ID when kv_sync is true but id is missing", async () => {
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: true\n---\nContent";
-      (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true });
+      (plugin.app.vault.cachedRead as jest.Mock)
+        .mockResolvedValueOnce("---\nkv_sync: true\n---\nContent")
+        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`)
+        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`);
+      (parseYaml as jest.Mock)
+        .mockReturnValueOnce({ kv_sync: true })
+        .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
+      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
 
-      expect(result.skipped).toBe(true);
-      expect(result.error).toContain("Missing doc ID");
-      expect(requestUrl).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(false);
+      expect(result.sync?.success).toBe(true);
+      expect(plugin.app.fileManager.processFrontMatter).toHaveBeenCalled();
     });
 
-    it("should return error when id is empty string", async () => {
+    it("should auto-assign ID when id is empty string", async () => {
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: true\nid: \n---\nContent";
-      (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "" });
+      (plugin.app.vault.cachedRead as jest.Mock)
+        .mockResolvedValueOnce("---\nkv_sync: true\nid: \n---\nContent")
+        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`)
+        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`);
+      (parseYaml as jest.Mock)
+        .mockReturnValueOnce({ kv_sync: true, id: "" })
+        .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
+      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
 
-      expect(result.skipped).toBe(true);
-      expect(result.error).toContain("Missing doc ID");
+      expect(result.skipped).toBe(false);
+      expect(result.sync?.success).toBe(true);
     });
   });
 
