@@ -102,28 +102,30 @@ describe("syncAllFiles", () => {
     expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 failed"));
   });
 
-  it("should skip files with missing ID (not counted as failed)", async () => {
-    // Note: The syncFile function returns { skipped: true } for files with
-    // kv_sync: true but missing id. These are treated as skipped, not failed.
+  it("should auto-assign ID for files with missing ID and sync them", async () => {
     const file1 = createMockTFile("file1.md");
     const file2 = createMockTFile("file2.md");
 
     (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2]);
+
+    const generatedId = "generated-uuid";
     (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
       if (file.path === "file1.md") return "---\nkv_sync: true\nid: id1\n---\n";
-      if (file.path === "file2.md") return "---\nkv_sync: true\n---\n"; // Missing id - skipped
+      if (file.path === "file2.md") return `---\nkv_sync: true\nid: ${generatedId}\n---\n`;
       return "";
     });
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
-      return { kv_sync: true }; // Missing id
+      if (yaml.includes(generatedId)) return { kv_sync: true, id: generatedId };
+      return { kv_sync: true };
     });
+    (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
     await syncAllFiles();
 
-    // Only file1 is synced, file2 is skipped (not counted as failed)
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 successful"));
+    // Both files are synced (file2 gets auto-assigned ID)
+    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("2 successful"));
     expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 failed"));
   });
 

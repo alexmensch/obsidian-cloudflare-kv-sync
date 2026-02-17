@@ -10,8 +10,6 @@ import {
   mockSuccessResponse,
   mockErrorResponse
 } from "../mocks/cloudflare-mocks";
-import { getConsoleErrorMock } from "../setup";
-
 describe("removeOrphanedUploads", () => {
   let noticeMock: jest.Mock;
 
@@ -123,7 +121,6 @@ describe("removeOrphanedUploads", () => {
     await removeOrphanedUploads();
 
     expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 successful, 2 failed"));
-    expect(getConsoleErrorMock()).toHaveBeenCalled();
   });
 
   it("should not show notice when no orphans exist", async () => {

@@ -10,6 +10,8 @@ import {
   requestUrl
 } from "obsidian";
 
+const ERROR_LOG_FILE = "Cloudflare KV Sync error log.md";
+
 interface CloudflareKVSettings {
   accountId: string;
   namespaceId: string;
@@ -67,10 +69,10 @@ export default class CloudflareKVPlugin extends Plugin {
       this.addSettingTab(new CloudflareKVSettingsTab(this.app, this));
       this.loadedSuccesfully = true;
     } catch (e) {
-      console.error(`Unable to load plugin, error: ${e}`);
       new Notice(
-        "Cloudflare kv sync plugin failed to load. See console for details."
+        "Cloudflare kv sync plugin failed to load. See error log for details."
       );
+      void this.writeErrorLog(`Plugin failed to load: ${e}`);
       return;
     }
 
@@ -130,7 +132,9 @@ export default class CloudflareKVPlugin extends Plugin {
     const timeout = setTimeout(() => {
       this.syncSingleFile(file)
         .catch((error) => {
-          console.error("Error in debounced sync:", error);
+          void this.writeErrorLog(
+            `Error in debounced sync of ${file.path}: ${error}`
+          );
         })
         .finally(() => {
           this.syncTimeouts.delete(file.path);
@@ -157,6 +161,9 @@ export default class CloudflareKVPlugin extends Plugin {
         if (notifyOutcome) new Notice("Successful sync");
       } else {
         if (notifyOutcome) new Notice(`Error syncing: ${sync.error}`);
+        await this.writeErrorLog(
+          `Error syncing ${file.path}: ${sync.error}`
+        );
       }
     }
   }
@@ -170,8 +177,11 @@ export default class CloudflareKVPlugin extends Plugin {
 
     const files = this.app.vault.getMarkdownFiles();
 
+    await this.detectAndFixDuplicates(files);
+
     let successful = 0;
     let failed = 0;
+    const errorMessages: string[] = [];
 
     for (const file of files) {
       const syncResult = await this.syncFile(file);
@@ -182,30 +192,37 @@ export default class CloudflareKVPlugin extends Plugin {
             successful++;
           } else {
             failed++;
-            console.error(`cloudflare kv API error: ${syncResult.sync.error}`);
+            errorMessages.push(
+              `API error syncing ${file.path}: ${syncResult.sync.error}`
+            );
           }
         } else if (syncResult.error) {
           failed++;
-          console.error(`Sync error: ${syncResult.error}`);
+          errorMessages.push(
+            `Sync error for ${file.path}: ${syncResult.error}`
+          );
         }
       }
     }
 
     await this.saveCache();
 
+    if (errorMessages.length > 0) {
+      await this.writeErrorLog(errorMessages);
+    }
+
     new Notice(`ℹ️ Sync complete: ${successful} successful, ${failed} failed`);
   }
 
   private async syncFile(file: TFile): Promise<SyncResult> {
     const result: SyncResult = { ...SKIPPED_SYNC_RESULT };
-    const frontmatter = await this.getFrontmatter(file);
+    let frontmatter = await this.getFrontmatter(file);
     const syncValue = this.coerceBoolean(frontmatter?.[this.settings.syncKey]);
-    const docId = this.coerceString(frontmatter?.[this.settings.idKey]);
-    const fileContent = await this.app.vault.cachedRead(file);
-    const previousKVKey = this.syncedFiles.get(file.path);
+    let docId = this.coerceString(frontmatter?.[this.settings.idKey]);
+    let previousKVKey = this.syncedFiles.get(file.path);
 
-    if (previousKVKey && (!frontmatter || !syncValue || !docId)) {
-      // File was previously synced, but is now missing metadata needed for sync
+    if (previousKVKey && (!frontmatter || !syncValue)) {
+      // File was previously synced, but now lacks frontmatter or sync flag
       result.skipped = false;
       result.sync = await this.deleteFromKV(previousKVKey);
       if (result.sync.success) this.syncedFiles.delete(file.path);
@@ -217,10 +234,26 @@ export default class CloudflareKVPlugin extends Plugin {
     }
     if (!syncValue) return result;
     if (!docId) {
-      result.error = `Missing doc ID in ${file.name}`;
-      return result;
+      if (previousKVKey) {
+        // ID was removed from a previously synced file — delete old key first
+        result.skipped = false;
+        const deleteResult = await this.deleteFromKV(previousKVKey);
+        if (deleteResult.success === false) {
+          result.error = `Unable to delete old kv entry: ${deleteResult.error}`;
+          return result;
+        }
+        this.syncedFiles.delete(file.path);
+        previousKVKey = undefined;
+      }
+      docId = await this.assignIdToFile(file);
+      frontmatter = await this.getFrontmatter(file);
+      if (!frontmatter) {
+        result.error = `No frontmatter found in ${file.name}`;
+        return result;
+      }
     }
 
+    const fileContent = await this.app.vault.cachedRead(file);
     const currentKVKey = this.buildKVKey(frontmatter);
 
     // File is marked for sync (syncValue guaranteed true at this point)
@@ -255,6 +288,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     let successful = 0;
     let failed = 0;
+    const errorMessages: string[] = [];
 
     for (const { filePath, kvKey } of entriesToRemove) {
       const result = await this.deleteFromKV(kvKey);
@@ -263,11 +297,17 @@ export default class CloudflareKVPlugin extends Plugin {
         this.syncedFiles.delete(filePath);
       } else {
         failed++;
-        console.error(`cloudflare kv API error: ${result.error}`);
+        errorMessages.push(
+          `API error removing orphan ${kvKey}: ${result.error}`
+        );
       }
     }
 
     await this.saveCache();
+
+    if (errorMessages.length > 0) {
+      await this.writeErrorLog(errorMessages);
+    }
 
     if (successful > 0 || failed > 0) {
       new Notice(
@@ -291,11 +331,13 @@ export default class CloudflareKVPlugin extends Plugin {
           return raw as Record<string, unknown>;
         return null;
       } catch (error) {
-        console.error("Error parsing frontmatter:", error);
+        void this.writeErrorLog(
+          `Error parsing frontmatter in ${file.name}: ${error}`
+        );
         return null;
       }
     } catch (error) {
-      console.error(`Error reading file: ${file.name}`, error);
+      void this.writeErrorLog(`Error reading file ${file.name}: ${error}`);
       return null;
     }
   }
@@ -392,13 +434,16 @@ export default class CloudflareKVPlugin extends Plugin {
       !this.settings.apiToken
     ) {
       new Notice("Cloudflare kv sync plugin requires configuration");
+      void this.writeErrorLog(
+        "Plugin requires configuration (missing credentials)"
+      );
       return false;
     }
 
     if (!this.app.secretStorage.getSecret(this.settings.apiToken)) {
-      new Notice(
-        `Keychain secret "${this.settings.apiToken}" requires a value`
-      );
+      const msg = `Keychain secret "${this.settings.apiToken}" requires a value`;
+      new Notice(msg);
+      void this.writeErrorLog(msg);
       return false;
     }
 
@@ -441,16 +486,96 @@ export default class CloudflareKVPlugin extends Plugin {
         cacheJson
       );
     } catch (error) {
-      console.error("Error saving cache:", error);
+      await this.writeErrorLog(`Error saving cache: ${error}`);
+    }
+  }
+
+  private formatErrorLogHeader(): string {
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.toLocaleString("en-US", { month: "short" });
+    const year = now.getFullYear();
+    const time = now.toTimeString().slice(0, 8);
+    return `\n## ${day} ${month} ${year}, ${time}\n`;
+  }
+
+  async writeErrorLog(messages: string | string[]): Promise<void> {
+    const lines = Array.isArray(messages) ? messages : [messages];
+    const entry = `${this.formatErrorLogHeader()}${lines.map((m) => `- ${m}`).join("\n")}\n`;
+
+    try {
+      if (await this.app.vault.adapter.exists(ERROR_LOG_FILE)) {
+        const existing = await this.app.vault.adapter.read(ERROR_LOG_FILE);
+        await this.app.vault.adapter.write(ERROR_LOG_FILE, existing + entry);
+      } else {
+        await this.app.vault.adapter.write(ERROR_LOG_FILE, entry);
+      }
+    } catch (error) {
+      console.error("Failed to write error log:", error);
+    }
+  }
+
+  private generateId(): string {
+    return crypto.randomUUID();
+  }
+
+  async assignIdToFile(file: TFile): Promise<string> {
+    const newId = this.generateId();
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (fm: Record<string, unknown>) => {
+        fm[this.settings.idKey] = newId;
+      }
+    );
+    return newId;
+  }
+
+  private async detectAndFixDuplicates(files: TFile[]): Promise<void> {
+    const keyMap = new Map<string, Array<{ file: TFile; docId: string }>>();
+
+    for (const file of files) {
+      const frontmatter = await this.getFrontmatter(file);
+      if (!frontmatter) continue;
+      const syncValue = this.coerceBoolean(
+        frontmatter[this.settings.syncKey]
+      );
+      if (!syncValue) continue;
+      const docId = this.coerceString(frontmatter[this.settings.idKey]);
+      if (!docId) continue;
+
+      const kvKey = this.buildKVKey(frontmatter);
+      if (!kvKey) continue;
+
+      const entries = keyMap.get(kvKey) || [];
+      entries.push({ file, docId });
+      keyMap.set(kvKey, entries);
+    }
+
+    const errorMessages: string[] = [];
+
+    for (const [key, entries] of keyMap.entries()) {
+      if (entries.length <= 1) continue;
+
+      entries.sort((a, b) => a.file.path.localeCompare(b.file.path));
+
+      for (let i = 1; i < entries.length; i++) {
+        const { file, docId: oldId } = entries[i];
+        const newId = await this.assignIdToFile(file);
+        errorMessages.push(
+          `Duplicate KV key "${key}" in ${file.path}: replaced ID "${oldId}" with "${newId}"`
+        );
+      }
+    }
+
+    if (errorMessages.length > 0) {
+      await this.writeErrorLog(errorMessages);
     }
   }
 
   onunload() {
     if (this.loadedSuccesfully) {
       /* istanbul ignore next */
-      this.saveCache().catch((error) => {
-        console.error("Error saving cache to disk: ", error);
-      });
+      this.saveCache().catch(() => {});
       this.unregisterEvents();
     }
   }
@@ -533,7 +658,7 @@ class CloudflareKVSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Note ID property name")
       .setDesc(
-        "The name of the property that holds a unique ID for each synced document"
+        "The name of the property that holds a unique ID for each synced document. If empty, a unique ID will be automatically generated."
       )
       .addText((text) =>
         text
@@ -583,15 +708,8 @@ class CloudflareKVSettingsTab extends PluginSettingTab {
         " in note properties to sync a note to your cloudflare kv namespace."
       );
     });
-    ol.createEl("li", {}, (li) => {
-      li.appendText(
-        `Ensure each note has a unique ID property (default: "${DEFAULT_SETTINGS.idKey}"). You can use `
-      );
-      li.createEl("a", {
-        text: "This plugin",
-        href: "obsidian://show-plugin?id=guid-front-matter"
-      });
-      li.appendText(" to do this automatically.");
+    ol.createEl("li", {
+      text: `A unique ID property (default: "${DEFAULT_SETTINGS.idKey}") will be automatically generated if empty or missing. If an ID already exists, it will be used as-is.`
     });
     ol.createEl("li", {
       text: 'You may optionally add a "collection" property, the value of which will be added as a prefix to the ID property when stored in kv.'

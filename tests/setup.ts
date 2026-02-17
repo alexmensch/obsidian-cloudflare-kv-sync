@@ -1,4 +1,12 @@
 // Test setup file
+import { randomUUID } from "crypto";
+
+// Polyfill crypto.randomUUID for jsdom test environment
+if (!globalThis.crypto?.randomUUID) {
+  Object.defineProperty(globalThis.crypto, "randomUUID", {
+    value: randomUUID
+  });
+}
 
 // Extend Jest matchers if needed
 expect.extend({});

@@ -5,7 +5,6 @@ import {
   getPrivateMethod
 } from "../helpers/plugin-test-helper";
 import { createMockTFile } from "../mocks/obsidian-mocks";
-import { getConsoleErrorMock } from "../setup";
 
 describe("getFrontmatter", () => {
   let plugin: CloudflareKVPlugin;
@@ -94,13 +93,16 @@ describe("getFrontmatter", () => {
     (parseYaml as jest.Mock).mockImplementation(() => {
       throw new Error("Invalid YAML");
     });
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 
     const result = await getFrontmatter(file);
 
     expect(result).toBeNull();
-    expect(getConsoleErrorMock()).toHaveBeenCalledWith(
-      "Error parsing frontmatter:",
-      expect.any(Error)
+    // writeErrorLog is called with void (fire-and-forget), give it a tick
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+      "Cloudflare KV Sync error log.md",
+      expect.stringContaining("Error parsing frontmatter in test.md")
     );
   });
 
@@ -110,13 +112,16 @@ describe("getFrontmatter", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockRejectedValue(
       new Error("File read error")
     );
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 
     const result = await getFrontmatter(file);
 
+    // writeErrorLog is called with void (fire-and-forget), give it a tick
+    await new Promise((resolve) => setTimeout(resolve, 10));
     expect(result).toBeNull();
-    expect(getConsoleErrorMock()).toHaveBeenCalledWith(
-      `Error reading file: ${file.name}`,
-      expect.any(Error)
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+      "Cloudflare KV Sync error log.md",
+      expect.stringContaining("Error reading file test.md")
     );
   });
 
