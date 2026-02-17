@@ -71,6 +71,9 @@ export function createMockApp(options?: {
 
   // Setup adapter for cache operations
   const adapter = app.vault.adapter as jest.Mocked<DataAdapter>;
+  adapter.exists = jest
+    .fn()
+    .mockResolvedValue(options?.cacheContent !== undefined);
   adapter.read = jest.fn().mockImplementation(async (path: string) => {
     if (options?.cacheContent !== undefined) {
       return options.cacheContent;

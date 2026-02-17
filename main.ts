@@ -406,10 +406,10 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private async loadCache() {
-    try {
-      const cacheData = await this.app.vault.adapter.read(
-        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`
-      );
+    const cacheFile = `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`;
+
+    if (await this.app.vault.adapter.exists(cacheFile)) {
+      const cacheData = await this.app.vault.adapter.read(cacheFile);
       const raw: unknown = JSON.parse(cacheData);
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         const parsed = raw as Record<string, unknown>;
@@ -419,12 +419,8 @@ export default class CloudflareKVPlugin extends Plugin {
           `Unable to parse cache file, parsed object was type ${typeof raw}`
         );
       }
-    } catch (e) {
-      if (e instanceof Error && e.message.includes("ENOENT")) {
-        this.cache = Object.assign({}, DEFAULT_CACHE);
-      } else {
-        throw e;
-      }
+    } else {
+      this.cache = Object.assign({}, DEFAULT_CACHE);
     }
 
     try {
