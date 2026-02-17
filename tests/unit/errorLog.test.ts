@@ -55,17 +55,17 @@ describe("writeErrorLog", () => {
     expect(writeCall).toContain("- Error 3");
   });
 
-  it("should include ISO datetime header", async () => {
+  it("should include human-readable datetime header", async () => {
     (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 
-    const before = new Date().toISOString().substring(0, 10);
     await writeErrorLog("Test error");
     const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock
       .calls[0][1] as string;
 
-    // Check that header contains a date
-    expect(writeCall).toMatch(/## \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    expect(writeCall).toContain(before);
+    // Check that header matches "17 Feb 2026, 23:32:22" format
+    expect(writeCall).toMatch(
+      /## \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}:\d{2}/
+    );
   });
 
   it("should fall back to console.error if vault API fails", async () => {
@@ -91,9 +91,11 @@ describe("formatErrorLogHeader", () => {
     formatErrorLogHeader = getPrivateMethod(plugin, "formatErrorLogHeader");
   });
 
-  it("should return a markdown header with ISO datetime", () => {
+  it("should return a markdown header with human-readable datetime", () => {
     const header = formatErrorLogHeader();
 
-    expect(header).toMatch(/\n## \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\n/);
+    expect(header).toMatch(
+      /\n## \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}:\d{2}\n/
+    );
   });
 });

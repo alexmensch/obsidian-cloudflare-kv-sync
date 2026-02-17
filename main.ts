@@ -480,7 +480,12 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private formatErrorLogHeader(): string {
-    return `\n## ${new Date().toISOString()}\n`;
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.toLocaleString("en-US", { month: "short" });
+    const year = now.getFullYear();
+    const time = now.toTimeString().slice(0, 8);
+    return `\n## ${day} ${month} ${year}, ${time}\n`;
   }
 
   async writeErrorLog(messages: string | string[]): Promise<void> {
