@@ -168,6 +168,17 @@ export const parseYaml = jest.fn().mockImplementation((yaml: string) => {
       ) {
         value = value.slice(1, -1);
       }
+      // Coerce unquoted numeric scalars to numbers, matching real parseYaml.
+      // This is what makes `id: 123` arrive as a number (which coerceString
+      // rejects) rather than the string "123" — the forgiving old mock hid
+      // that real failure mode.
+      else if (
+        typeof value === "string" &&
+        value.trim() !== "" &&
+        !isNaN(Number(value))
+      ) {
+        value = Number(value);
+      }
 
       result[key] = value;
     }
@@ -177,6 +188,7 @@ export const parseYaml = jest.fn().mockImplementation((yaml: string) => {
 });
 
 export const requestUrl = jest.fn().mockResolvedValue({
+  status: 200,
   text: JSON.stringify({ success: true })
 });
 

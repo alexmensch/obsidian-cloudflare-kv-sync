@@ -156,10 +156,12 @@ describe("debouncedFileSync", () => {
 
     await jest.advanceTimersByTimeAsync(60000);
 
-    // Should have written to error log
+    // Should have written to error log. syncSingleFile now catches the failure
+    // internally (so the command/ribbon callbacks can't leak an unhandled
+    // rejection) and logs it, rather than rejecting up to the debounced catch.
     expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
       "Cloudflare KV Sync error log.md",
-      expect.stringContaining("Error in debounced sync of test.md")
+      expect.stringContaining("Error syncing test.md")
     );
   });
 

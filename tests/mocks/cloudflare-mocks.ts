@@ -3,23 +3,59 @@
 /**
  * Creates a successful Cloudflare API response
  */
-export function mockSuccessResponse(): { text: string } {
+export function mockSuccessResponse(): { status: number; text: string } {
   return {
+    status: 200,
     text: JSON.stringify({ success: true })
   };
 }
 
 /**
- * Creates a Cloudflare API error response
+ * Creates a Cloudflare API error response with an HTTP 200 status but a
+ * success:false body. This models the rare structured-error case; most real
+ * failures (auth, missing key) come back as HTTP 4xx — see
+ * mockHttpErrorResponse.
  */
 export function mockErrorResponse(
   errors: Array<{ code: number; message: string }>
-): { text: string } {
+): { status: number; text: string } {
   return {
+    status: 200,
     text: JSON.stringify({
       success: false,
       errors
     })
+  };
+}
+
+/**
+ * Creates a real Cloudflare HTTP error response (status 400+). The production
+ * requestUrl throws on these by default; the plugin passes throw:false and
+ * inspects the status, so the mock must carry one.
+ */
+export function mockHttpErrorResponse(
+  status: number,
+  errors: Array<{ code: number; message: string }> = [
+    { code: status, message: `HTTP ${status}` }
+  ]
+): { status: number; text: string } {
+  return {
+    status,
+    text: JSON.stringify({ success: false, errors })
+  };
+}
+
+/**
+ * Creates an HTTP error response whose body is not JSON (e.g. an HTML error
+ * page from an edge proxy), to exercise the non-JSON error path.
+ */
+export function mockHttpErrorResponseNonJson(status: number): {
+  status: number;
+  text: string;
+} {
+  return {
+    status,
+    text: "<html><body>Bad gateway</body></html>"
   };
 }
 
@@ -33,8 +69,9 @@ export function mockNetworkError(message: string = "Network error"): Error {
 /**
  * Creates an invalid JSON response
  */
-export function mockInvalidJsonResponse(): { text: string } {
+export function mockInvalidJsonResponse(): { status: number; text: string } {
   return {
+    status: 200,
     text: "Not valid JSON"
   };
 }
@@ -42,8 +79,9 @@ export function mockInvalidJsonResponse(): { text: string } {
 /**
  * Creates an unexpected array response
  */
-export function mockArrayResponse(): { text: string } {
+export function mockArrayResponse(): { status: number; text: string } {
   return {
+    status: 200,
     text: JSON.stringify([{ unexpected: "array" }])
   };
 }
@@ -51,8 +89,12 @@ export function mockArrayResponse(): { text: string } {
 /**
  * Creates a mock response with custom data
  */
-export function mockCustomResponse(data: unknown): { text: string } {
+export function mockCustomResponse(data: unknown): {
+  status: number;
+  text: string;
+} {
   return {
+    status: 200,
     text: JSON.stringify(data)
   };
 }
