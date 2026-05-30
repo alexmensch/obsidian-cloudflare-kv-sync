@@ -35,8 +35,8 @@ An Obsidian plugin that automatically syncs markdown files to Cloudflare KV stor
 ### Development Installation
 
 1. Clone this repository
-2. Run `npm install` to install dependencies
-3. Run `npm run build` to build the plugin
+2. Run `pnpm install` to install dependencies
+3. Run `pnpm run build` to build the plugin
 4. Copy `main.js`, `manifest.json`, and `versions.json` to a new folder in your vault's plugin folder, eg. `.obsidian/plugins/cloudflare-kv-sync/`
 
 ## Setup
@@ -109,9 +109,8 @@ This creates KV key: `writing/my-blog-post`
 
 - **Ribbon icon**: Click the cloud upload icon to sync all marked files.
 - **Command palette**:
-  - "Sync all files marked for KV sync"
   - "Sync current file to Cloudflare KV"
-  - "Remove current file from Cloudflare KV"
+  - "Sync all marked files to Cloudflare KV"
 
 ### Sync Behavior
 
@@ -126,8 +125,8 @@ This creates KV key: `writing/my-blog-post`
 | -------------- | --------- | ---------------------------------------------------------------- |
 | Sync Key       | `kv_sync` | Frontmatter key to check for sync flag                           |
 | ID Key         | `id`      | Frontmatter key containing document ID (auto-generated if empty) |
-| Auto-sync      | `true`    | Automatically sync files on modification                         |
-| Debounce Delay | `2000ms`  | Wait time before syncing after file changes                      |
+| Auto-sync      | `false`   | Automatically sync files on modification                         |
+| Debounce Delay | `60s`     | Wait time before syncing after file changes                      |
 
 ## Examples
 
@@ -209,14 +208,14 @@ This won't be synced to KV.
 ### Building
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ### Development Mode
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 This will watch for changes and rebuild automatically.
