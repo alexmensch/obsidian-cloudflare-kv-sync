@@ -29,16 +29,21 @@ describe("buildKVKey", () => {
     expect(buildKVKey({ id: "abc", collection: "  " })).toBe("abc");
   });
 
-  it("should return undefined when id is missing and no collection", () => {
-    expect(buildKVKey({})).toBeUndefined();
+  it("should return null when id is missing and no collection", () => {
+    expect(buildKVKey({})).toBeNull();
   });
 
-  it("should return undefined when id is empty string and no collection", () => {
-    expect(buildKVKey({ id: "" })).toBeUndefined();
+  it("should return null when id is empty string and no collection", () => {
+    expect(buildKVKey({ id: "" })).toBeNull();
   });
 
-  it("should return undefined when id is whitespace and no collection", () => {
-    expect(buildKVKey({ id: "   " })).toBeUndefined();
+  it("should return null when id is whitespace and no collection", () => {
+    expect(buildKVKey({ id: "   " })).toBeNull();
+  });
+
+  it("should return null when id is missing even if a collection is set", () => {
+    // Guards against producing a "collection/undefined" key.
+    expect(buildKVKey({ collection: "posts" })).toBeNull();
   });
 
   it("should handle complex id values", () => {
@@ -67,7 +72,7 @@ describe("buildKVKey", () => {
   });
 
   it("should ignore non-string id values", () => {
-    expect(buildKVKey({ id: 123 })).toBeUndefined();
+    expect(buildKVKey({ id: 123 })).toBeNull();
   });
 
   it("should ignore non-string collection values", () => {

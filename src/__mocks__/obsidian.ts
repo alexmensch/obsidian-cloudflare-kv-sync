@@ -84,6 +84,8 @@ export class DataAdapter {
   exists = jest.fn().mockResolvedValue(false);
   read = jest.fn().mockResolvedValue("");
   write = jest.fn().mockResolvedValue(undefined);
+  append = jest.fn().mockResolvedValue(undefined);
+  stat = jest.fn().mockResolvedValue({ size: 0 });
 }
 
 export class Workspace {

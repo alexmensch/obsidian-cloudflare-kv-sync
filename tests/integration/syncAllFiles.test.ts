@@ -289,8 +289,8 @@ describe("syncAllFiles", () => {
     );
     // Cache persisted despite the mid-batch throw.
     expect(plugin.app.vault.adapter.write).toHaveBeenCalled();
-    // The throwing file was logged.
-    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+    // The throwing file was logged (appended to the existing error log).
+    expect(plugin.app.vault.adapter.append).toHaveBeenCalledWith(
       "Cloudflare KV Sync error log.md",
       expect.stringContaining("file2.md")
     );
