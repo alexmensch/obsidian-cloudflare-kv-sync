@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "obsidian_cloudflare_kv_sync",
+  "project_id": "40937072-3441-4ddd-9431-eb3e0c2555c2"
+}
