@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -26,14 +28,14 @@ jobs:
       - name: Derive tag
         run: |
           echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          echo "PLUGIN_NAME=cloudflare-kv-sync" >> $GITHUB_ENV
           echo "DIST_DIR=dist" >> $GITHUB_ENV
 
-      - name: Package release zip
-        run: |
-          mkdir "$PLUGIN_NAME"
-          cp $DIST_DIR/* "$PLUGIN_NAME/"
-          zip -r "$PLUGIN_NAME-$TAG.zip" "$PLUGIN_NAME"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/main.js
+            dist/styles.css
 
       - name: Create release
         env:
@@ -42,4 +44,4 @@ jobs:
           gh release create "$TAG" \
             --title="$TAG" \
             --draft \
-            $DIST_DIR/* "$PLUGIN_NAME-$TAG.zip"
+            "$DIST_DIR/main.js" "$DIST_DIR/manifest.json" "$DIST_DIR/styles.css"

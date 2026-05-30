@@ -56,7 +56,7 @@ const SKIPPED_SYNC_RESULT: SyncResult = {
 
 export default class CloudflareKVPlugin extends Plugin {
   settings: CloudflareKVSettings;
-  private syncTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private syncTimeouts: Map<string, number> = new Map();
   private syncedFiles: Map<string, string> = new Map();
   private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
@@ -126,10 +126,10 @@ export default class CloudflareKVPlugin extends Plugin {
   private debouncedFileSync(file: TFile) {
     const existingTimeout = this.syncTimeouts.get(file.path);
     if (existingTimeout) {
-      clearTimeout(existingTimeout);
+      activeWindow.clearTimeout(existingTimeout);
     }
 
-    const timeout = setTimeout(() => {
+    const timeout = activeWindow.setTimeout(() => {
       this.syncSingleFile(file)
         .catch((error) => {
           void this.writeErrorLog(
@@ -582,7 +582,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
   private unregisterEvents() {
     for (const timeout of this.syncTimeouts.values()) {
-      clearTimeout(timeout);
+      activeWindow.clearTimeout(timeout);
     }
     this.syncTimeouts.clear();
   }

@@ -8,6 +8,13 @@ if (!globalThis.crypto?.randomUUID) {
   });
 }
 
+// Obsidian exposes the active window as the `activeWindow` global. In jsdom
+// window === globalThis, so pointing it there makes activeWindow.setTimeout the
+// same function jest.useFakeTimers() patches.
+if (typeof (globalThis as { activeWindow?: unknown }).activeWindow === "undefined") {
+  (globalThis as { activeWindow?: typeof globalThis }).activeWindow = globalThis;
+}
+
 // Extend Jest matchers if needed
 expect.extend({});
 
