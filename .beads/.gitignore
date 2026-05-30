@@ -10,6 +10,9 @@ sync-state.json
 last-touched
 .exclusive-lock
 
+# Interactions log (runtime activity log, not versioned)
+interactions.jsonl
+
 # Daemon runtime (lock, log, pid)
 daemon.*
 
