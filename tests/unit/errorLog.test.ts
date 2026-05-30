@@ -69,6 +69,25 @@ describe("writeErrorLog", () => {
     expect(rewritten.length).toBeLessThan(existing.length);
   });
 
+  it("should keep the raw tail when the kept slice spans no entry boundary", async () => {
+    // One giant entry with no `## ` header in the retained tail — the trim
+    // falls back to keeping the slice verbatim rather than dropping everything.
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
+    (plugin.app.vault.adapter.stat as jest.Mock).mockResolvedValue({
+      size: 2_000_000
+    });
+    const existing = "\n## 1 Jan 2020, 00:00:00\n- " + "y".repeat(1_500_000);
+    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(existing);
+
+    await writeErrorLog("New error message");
+
+    const rewritten = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0][1] as string;
+    expect(rewritten).toContain("- New error message");
+    expect(rewritten).not.toContain("## 1 Jan 2020");
+    expect(rewritten.length).toBeLessThan(existing.length);
+  });
+
   it("should handle array of messages", async () => {
     (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 

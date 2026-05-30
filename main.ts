@@ -569,8 +569,8 @@ export default class CloudflareKVPlugin extends Plugin {
 
     try {
       this.syncedFiles = new Map(Object.entries(syncedFiles));
-      /* istanbul ignore next */
     } catch (e) {
+      /* istanbul ignore next -- Object.entries/new Map can't throw on a validated record */
       throw new Error(`Failed to read cached data: ${String(e)}`);
     }
   }
