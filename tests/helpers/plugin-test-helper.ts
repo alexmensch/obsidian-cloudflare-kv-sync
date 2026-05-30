@@ -38,7 +38,7 @@ export async function createTestPlugin(options?: PluginTestOptions): Promise<Clo
   (plugin as unknown as { manifest: { dir: string } }).manifest = {
     dir: ".obsidian/plugins/cloudflare-kv-sync"
   };
-  (plugin as unknown as { syncTimeouts: Map<string, NodeJS.Timeout> }).syncTimeouts = new Map();
+  (plugin as unknown as { syncTimeouts: Map<string, number> }).syncTimeouts = new Map();
   (plugin as unknown as { syncedFiles: Map<string, string> }).syncedFiles = new Map();
   (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully = false;
 
