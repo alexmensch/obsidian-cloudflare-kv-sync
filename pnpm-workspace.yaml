@@ -1,5 +1,6 @@
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
 
 overrides:
   "@tootallnate/once@<2.0.1": "2.0.1"
