@@ -30,12 +30,19 @@ describe("syncAllFiles", () => {
     const file1 = createMockTFile("file1.md");
     const file2 = createMockTFile("file2.md");
 
-    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2]);
-    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
-      if (file.path === "file1.md") return "---\nkv_sync: true\nid: id1\n---\n";
-      if (file.path === "file2.md") return "---\nkv_sync: true\nid: id2\n---\n";
-      return "";
-    });
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2
+    ]);
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md")
+          return "---\nkv_sync: true\nid: id1\n---\n";
+        if (file.path === "file2.md")
+          return "---\nkv_sync: true\nid: id2\n---\n";
+        return "";
+      }
+    );
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
       if (yaml.includes("id2")) return { kv_sync: true, id: "id2" };
@@ -45,8 +52,12 @@ describe("syncAllFiles", () => {
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith("Syncing all notes in your vault...");
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("2 successful"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      "Syncing all notes in your vault..."
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("2 successful")
+    );
     expect(requestUrl).toHaveBeenCalledTimes(2);
   });
 
@@ -54,12 +65,19 @@ describe("syncAllFiles", () => {
     const file1 = createMockTFile("file1.md");
     const file2 = createMockTFile("file2.md");
 
-    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2]);
-    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
-      if (file.path === "file1.md") return "---\nkv_sync: true\nid: id1\n---\n";
-      if (file.path === "file2.md") return "---\nkv_sync: false\nid: id2\n---\n";
-      return "";
-    });
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2
+    ]);
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md")
+          return "---\nkv_sync: true\nid: id1\n---\n";
+        if (file.path === "file2.md")
+          return "---\nkv_sync: false\nid: id2\n---\n";
+        return "";
+      }
+    );
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
       if (yaml.includes("id2")) return { kv_sync: false, id: "id2" };
@@ -69,7 +87,9 @@ describe("syncAllFiles", () => {
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 successful"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("1 successful")
+    );
     expect(requestUrl).toHaveBeenCalledTimes(1);
   });
 
@@ -78,13 +98,22 @@ describe("syncAllFiles", () => {
     const file2 = createMockTFile("file2.md");
     const file3 = createMockTFile("file3.md");
 
-    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2, file3]);
-    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
-      if (file.path === "file1.md") return "---\nkv_sync: true\nid: id1\n---\n";
-      if (file.path === "file2.md") return "---\nkv_sync: true\nid: id2\n---\n";
-      if (file.path === "file3.md") return "---\nkv_sync: true\nid: id3\n---\n";
-      return "";
-    });
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2,
+      file3
+    ]);
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md")
+          return "---\nkv_sync: true\nid: id1\n---\n";
+        if (file.path === "file2.md")
+          return "---\nkv_sync: true\nid: id2\n---\n";
+        if (file.path === "file3.md")
+          return "---\nkv_sync: true\nid: id3\n---\n";
+        return "";
+      }
+    );
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
       if (yaml.includes("id2")) return { kv_sync: true, id: "id2" };
@@ -93,40 +122,59 @@ describe("syncAllFiles", () => {
     });
     (requestUrl as jest.Mock)
       .mockResolvedValueOnce(mockSuccessResponse())
-      .mockResolvedValueOnce(mockErrorResponse([{ code: 10000, message: "Failed" }]))
+      .mockResolvedValueOnce(
+        mockErrorResponse([{ code: 10000, message: "Failed" }])
+      )
       .mockResolvedValueOnce(mockSuccessResponse());
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("2 successful"));
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("2 successful")
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("1 failed")
+    );
   });
 
   it("should auto-assign ID for files with missing ID and sync them", async () => {
     const file1 = createMockTFile("file1.md");
     const file2 = createMockTFile("file2.md");
 
-    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2]);
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2
+    ]);
 
     const generatedId = "generated-uuid";
-    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
-      if (file.path === "file1.md") return "---\nkv_sync: true\nid: id1\n---\n";
-      if (file.path === "file2.md") return `---\nkv_sync: true\nid: ${generatedId}\n---\n`;
-      return "";
-    });
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md")
+          return "---\nkv_sync: true\nid: id1\n---\n";
+        if (file.path === "file2.md")
+          return `---\nkv_sync: true\nid: ${generatedId}\n---\n`;
+        return "";
+      }
+    );
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
       if (yaml.includes(generatedId)) return { kv_sync: true, id: generatedId };
       return { kv_sync: true };
     });
-    (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+    (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(
+      undefined
+    );
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
     await syncAllFiles();
 
     // Both files are synced (file2 gets auto-assigned ID)
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("2 successful"));
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("2 successful")
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("0 failed")
+    );
   });
 
   it("should handle empty vault", async () => {
@@ -134,8 +182,12 @@ describe("syncAllFiles", () => {
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith("Syncing all notes in your vault...");
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 successful, 0 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      "Syncing all notes in your vault..."
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("0 successful, 0 failed")
+    );
     expect(requestUrl).not.toHaveBeenCalled();
   });
 
@@ -143,7 +195,9 @@ describe("syncAllFiles", () => {
     const file1 = createMockTFile("file1.md");
 
     (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1]);
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: id1\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: id1\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "id1" });
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
@@ -154,11 +208,15 @@ describe("syncAllFiles", () => {
 
   it("should not run sync when settings are invalid", async () => {
     // Remove API token secret
-    (plugin.app.secretStorage.getSecret as jest.Mock).mockReturnValue(undefined);
+    (plugin.app.secretStorage.getSecret as jest.Mock).mockReturnValue(
+      undefined
+    );
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("requires a value"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("requires a value")
+    );
     expect(requestUrl).not.toHaveBeenCalled();
   });
 
@@ -166,8 +224,13 @@ describe("syncAllFiles", () => {
     const file1 = createMockTFile("file1.md");
     const file2 = createMockTFile("file2.md");
 
-    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([file1, file2]);
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: id1\n---\n");
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2
+    ]);
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: id1\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "id1" });
     (requestUrl as jest.Mock).mockResolvedValue(
       mockErrorResponse([{ code: 10000, message: "Error" }])
@@ -175,7 +238,9 @@ describe("syncAllFiles", () => {
 
     await syncAllFiles();
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 successful, 2 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("0 successful, 2 failed")
+    );
   });
 
   it("should count as failed when key change deletion fails (error path without sync result)", async () => {
@@ -201,7 +266,9 @@ describe("syncAllFiles", () => {
     await syncAllFiles();
 
     // Should report as failed since delete of old key failed
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 successful, 1 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("0 successful, 1 failed")
+    );
   });
 });
 
@@ -223,7 +290,9 @@ describe("syncSingleFile", () => {
 
   it("should show notice on successful sync when notifyOutcome is true", async () => {
     const file = createMockTFile("test.md");
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: test-id\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: test-id\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
@@ -234,7 +303,9 @@ describe("syncSingleFile", () => {
 
   it("should not show notice on successful sync when notifyOutcome is false", async () => {
     const file = createMockTFile("test.md");
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: test-id\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: test-id\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
@@ -245,7 +316,9 @@ describe("syncSingleFile", () => {
 
   it("should show 'not marked for sync' notice when file is skipped", async () => {
     const file = createMockTFile("test.md");
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: false\nid: test-id\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: false\nid: test-id\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: false, id: "test-id" });
 
     await syncSingleFile(file, true);
@@ -255,7 +328,9 @@ describe("syncSingleFile", () => {
 
   it("should show error notice on sync failure", async () => {
     const file = createMockTFile("test.md");
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: test-id\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: test-id\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
     (requestUrl as jest.Mock).mockResolvedValue(
       mockErrorResponse([{ code: 10000, message: "Upload failed" }])
@@ -263,12 +338,16 @@ describe("syncSingleFile", () => {
 
     await syncSingleFile(file, true);
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("Error syncing"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("Error syncing")
+    );
   });
 
   it("should save cache after sync", async () => {
     const file = createMockTFile("test.md");
-    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue("---\nkv_sync: true\nid: test-id\n---\n");
+    (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+      "---\nkv_sync: true\nid: test-id\n---\n"
+    );
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
@@ -278,12 +357,16 @@ describe("syncSingleFile", () => {
   });
 
   it("should not run when settings are invalid", async () => {
-    (plugin.app.secretStorage.getSecret as jest.Mock).mockReturnValue(undefined);
+    (plugin.app.secretStorage.getSecret as jest.Mock).mockReturnValue(
+      undefined
+    );
     const file = createMockTFile("test.md");
 
     await syncSingleFile(file, true);
 
     expect(requestUrl).not.toHaveBeenCalled();
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("requires a value"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("requires a value")
+    );
   });
 });

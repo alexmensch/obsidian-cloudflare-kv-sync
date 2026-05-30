@@ -38,9 +38,7 @@ describe("detectAndFixDuplicates", () => {
 
     await detectAndFixDuplicates([file1, file2]);
 
-    expect(
-      plugin.app.fileManager.processFrontMatter
-    ).not.toHaveBeenCalled();
+    expect(plugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
   });
 
   it("should replace ID of second file (alphabetically) when two files share same KV key", async () => {
@@ -62,10 +60,7 @@ describe("detectAndFixDuplicates", () => {
     });
 
     (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-      async (
-        _file: TFile,
-        fn: (fm: Record<string, unknown>) => void
-      ) => {
+      async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
         fn({});
       }
     );
@@ -103,9 +98,7 @@ describe("detectAndFixDuplicates", () => {
 
     await detectAndFixDuplicates([file1, file2]);
 
-    expect(
-      plugin.app.fileManager.processFrontMatter
-    ).not.toHaveBeenCalled();
+    expect(plugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
   });
 
   it("should handle three-way duplicate - files 2 and 3 get new IDs", async () => {
@@ -121,10 +114,7 @@ describe("detectAndFixDuplicates", () => {
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "dup-id" });
 
     (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-      async (
-        _file: TFile,
-        fn: (fm: Record<string, unknown>) => void
-      ) => {
+      async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
         fn({});
       }
     );
@@ -164,9 +154,7 @@ describe("detectAndFixDuplicates", () => {
 
     await detectAndFixDuplicates([file1, file2]);
 
-    expect(
-      plugin.app.fileManager.processFrontMatter
-    ).not.toHaveBeenCalled();
+    expect(plugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
   });
 
   it("should write error log with old and new IDs for duplicates", async () => {
@@ -179,10 +167,7 @@ describe("detectAndFixDuplicates", () => {
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "dup-id" });
 
     (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-      async (
-        _file: TFile,
-        fn: (fm: Record<string, unknown>) => void
-      ) => {
+      async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
         fn({});
       }
     );

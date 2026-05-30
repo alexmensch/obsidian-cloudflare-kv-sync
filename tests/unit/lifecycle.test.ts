@@ -91,7 +91,9 @@ describe("Plugin lifecycle", () => {
       ).loadedSuccesfully = false;
 
       // Make loadData throw
-      freshPlugin.loadData = jest.fn().mockRejectedValue(new Error("Load failed"));
+      freshPlugin.loadData = jest
+        .fn()
+        .mockRejectedValue(new Error("Load failed"));
       freshPlugin.saveData = jest.fn();
       freshPlugin.addSettingTab = jest.fn();
       freshPlugin.addRibbonIcon = jest.fn();
@@ -300,7 +302,10 @@ describe("Plugin lifecycle", () => {
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
         "---\nkv_sync: true\nid: test-id\n---\n"
       );
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue({
         text: JSON.stringify({ success: true })
       });
@@ -362,7 +367,8 @@ describe("Plugin lifecycle", () => {
         (call: unknown[]) =>
           (call[0] as { id: string }).id === "sync-all-files-to-kv"
       );
-      const callback = (syncAllFilesCmd[0] as { callback: () => void }).callback;
+      const callback = (syncAllFilesCmd[0] as { callback: () => void })
+        .callback;
 
       callback();
 
@@ -418,12 +424,14 @@ describe("Plugin lifecycle", () => {
       let modifyCallback: ((file: TFile) => void) | null = null;
       (plugin.app.vault.on as jest.Mock) = jest
         .fn()
-        .mockImplementation((event: string, callback: (file: TFile) => void) => {
-          if (event === "modify") {
-            modifyCallback = callback;
+        .mockImplementation(
+          (event: string, callback: (file: TFile) => void) => {
+            if (event === "modify") {
+              modifyCallback = callback;
+            }
+            return { event, callback };
           }
-          return { event, callback };
-        });
+        );
 
       const registerEvents = getPrivateMethod<() => void>(
         plugin,
@@ -435,7 +443,10 @@ describe("Plugin lifecycle", () => {
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
         "---\nkv_sync: true\nid: test-id\n---\n"
       );
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue({
         text: JSON.stringify({ success: true })
       });
@@ -464,12 +475,14 @@ describe("Plugin lifecycle", () => {
       let modifyCallback: ((file: TFile) => void) | null = null;
       (plugin.app.vault.on as jest.Mock) = jest
         .fn()
-        .mockImplementation((event: string, callback: (file: TFile) => void) => {
-          if (event === "modify") {
-            modifyCallback = callback;
+        .mockImplementation(
+          (event: string, callback: (file: TFile) => void) => {
+            if (event === "modify") {
+              modifyCallback = callback;
+            }
+            return { event, callback };
           }
-          return { event, callback };
-        });
+        );
 
       const registerEvents = getPrivateMethod<() => void>(
         plugin,

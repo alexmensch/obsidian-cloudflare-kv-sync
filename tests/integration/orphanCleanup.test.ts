@@ -29,12 +29,14 @@ describe("removeOrphanedUploads", () => {
     const plugin = await createTestPlugin({ cacheContent });
 
     // Mock getAbstractFileByPath to return file only if it exists
-    (plugin.app.vault.getAbstractFileByPath as jest.Mock).mockImplementation((path: string) => {
-      if (existingFilePaths.includes(path)) {
-        return createMockTFile(path);
+    (plugin.app.vault.getAbstractFileByPath as jest.Mock).mockImplementation(
+      (path: string) => {
+        if (existingFilePaths.includes(path)) {
+          return createMockTFile(path);
+        }
+        return null;
       }
-      return null;
-    });
+    );
 
     return plugin;
   }
@@ -48,7 +50,10 @@ describe("removeOrphanedUploads", () => {
       ["file1.md", "file2.md"]
     );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(requestUrl).not.toHaveBeenCalled();
@@ -66,7 +71,10 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(requestUrl).toHaveBeenCalledTimes(2);
@@ -82,7 +90,9 @@ describe("removeOrphanedUploads", () => {
         url: expect.stringContaining("/values/key3")
       })
     );
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("2 successful"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("2 successful")
+    );
   });
 
   it("should handle partial failures", async () => {
@@ -95,14 +105,23 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock)
       .mockResolvedValueOnce(mockSuccessResponse())
-      .mockResolvedValueOnce(mockErrorResponse([{ code: 10000, message: "Failed" }]));
+      .mockResolvedValueOnce(
+        mockErrorResponse([{ code: 10000, message: "Failed" }])
+      );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(requestUrl).toHaveBeenCalledTimes(2);
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 successful"));
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("1 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("1 successful")
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("1 failed")
+    );
   });
 
   it("should handle all deletions failing", async () => {
@@ -117,10 +136,15 @@ describe("removeOrphanedUploads", () => {
       mockErrorResponse([{ code: 10000, message: "Failed" }])
     );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
-    expect(noticeMock).toHaveBeenCalledWith(expect.stringContaining("0 successful, 2 failed"));
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("0 successful, 2 failed")
+    );
   });
 
   it("should not show notice when no orphans exist", async () => {
@@ -131,7 +155,10 @@ describe("removeOrphanedUploads", () => {
       ["file1.md"]
     );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(noticeMock).not.toHaveBeenCalled();
@@ -140,7 +167,10 @@ describe("removeOrphanedUploads", () => {
   it("should handle empty cache", async () => {
     const plugin = await setupPluginWithCache({}, []);
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(requestUrl).not.toHaveBeenCalled();
@@ -157,10 +187,16 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     expect(syncedFiles.size).toBe(0);
   });
 
@@ -174,12 +210,20 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock)
       .mockResolvedValueOnce(mockSuccessResponse())
-      .mockResolvedValueOnce(mockErrorResponse([{ code: 10000, message: "Failed" }]));
+      .mockResolvedValueOnce(
+        mockErrorResponse([{ code: 10000, message: "Failed" }])
+      );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     // One should have been removed, one should remain
     expect(syncedFiles.size).toBe(1);
   });
@@ -193,7 +237,10 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(plugin.app.vault.adapter.write).toHaveBeenCalled();
@@ -209,7 +256,10 @@ describe("removeOrphanedUploads", () => {
     );
     (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     expect(requestUrl).toHaveBeenCalledWith(
@@ -235,12 +285,17 @@ describe("removeOrphanedUploads", () => {
     );
 
     const callOrder: string[] = [];
-    (requestUrl as jest.Mock).mockImplementation(async (options: { url: string }) => {
-      callOrder.push(options.url);
-      return mockSuccessResponse();
-    });
+    (requestUrl as jest.Mock).mockImplementation(
+      async (options: { url: string }) => {
+        callOrder.push(options.url);
+        return mockSuccessResponse();
+      }
+    );
 
-    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(plugin, "removeOrphanedUploads");
+    const removeOrphanedUploads = getPrivateMethod<() => Promise<void>>(
+      plugin,
+      "removeOrphanedUploads"
+    );
     await removeOrphanedUploads();
 
     // Should have been called 3 times sequentially

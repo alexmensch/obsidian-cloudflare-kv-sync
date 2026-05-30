@@ -37,6 +37,7 @@ Package manager: pnpm
   - Sync configuration (key names, auto-sync, debounce delay)
 
 **Key data structures:**
+
 - `CloudflareKVSettings` — Plugin configuration persisted to Obsidian data.json
 - `CloudflareKVCache` — Tracks synced files mapping (file path → KV key) in cache.json
 
@@ -71,6 +72,7 @@ Content-Type: text/plain
 ## Build Output
 
 Production build outputs to `dist/`:
+
 - `main.js` — Bundled, minified plugin code (CommonJS format for Obsidian)
 - `manifest.json`, `styles.css`, `versions.json` — Copied assets
 
@@ -97,12 +99,13 @@ Settings UI (`CloudflareKVSettingsTab`) is excluded from test coverage.
 ## Release Process
 
 GitHub Actions workflow triggered on git tags:
+
 1. Builds production bundle
 2. Packages as zip with plugin directory structure
 3. Creates GitHub release with artifacts
 
-
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
+
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -140,6 +143,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
 4. **Handle git/sync by active profile**:
+
    ```bash
    # Conservative/minimal/default: report status and proposed commands; wait for approval.
    git status
@@ -149,9 +153,11 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
    git push
    git status
    ```
+
 5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
 
 **Critical rules:**
+
 - Explicit user or orchestrator instructions override this Beads block.
 - Do not commit or push without clear authority from the active profile or the current user request.
 - If a required sync or push is blocked, stop and report the exact command and error.

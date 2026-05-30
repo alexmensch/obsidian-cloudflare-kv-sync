@@ -13,8 +13,8 @@ describe("CloudflareKVPlugin field initialization", () => {
     expect(
       getPrivateProperty<Map<string, string>>(plugin, "syncedFiles")
     ).toEqual(new Map());
-    expect(
-      getPrivateProperty<boolean>(plugin, "loadedSuccesfully")
-    ).toBe(false);
+    expect(getPrivateProperty<boolean>(plugin, "loadedSuccesfully")).toBe(
+      false
+    );
   });
 });

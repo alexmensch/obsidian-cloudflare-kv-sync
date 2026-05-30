@@ -122,12 +122,12 @@ This creates KV key: `writing/my-blog-post`
 
 ## Configuration Options
 
-| Setting        | Default   | Description                                 |
-| -------------- | --------- | ------------------------------------------- |
-| Sync Key       | `kv_sync` | Frontmatter key to check for sync flag      |
+| Setting        | Default   | Description                                                      |
+| -------------- | --------- | ---------------------------------------------------------------- |
+| Sync Key       | `kv_sync` | Frontmatter key to check for sync flag                           |
 | ID Key         | `id`      | Frontmatter key containing document ID (auto-generated if empty) |
-| Auto-sync      | `true`    | Automatically sync files on modification    |
-| Debounce Delay | `2000ms`  | Wait time before syncing after file changes |
+| Auto-sync      | `true`    | Automatically sync files on modification                         |
+| Debounce Delay | `2000ms`  | Wait time before syncing after file changes                      |
 
 ## Examples
 

@@ -18,7 +18,9 @@ describe("loadSettings", () => {
 
     // Re-mock loadData and call loadSettings again
     plugin.loadData = jest.fn().mockResolvedValue(null);
-    await (plugin as unknown as { loadSettings: () => Promise<void> }).loadSettings();
+    await (
+      plugin as unknown as { loadSettings: () => Promise<void> }
+    ).loadSettings();
 
     expect(plugin.settings).toEqual({
       accountId: "",
@@ -65,7 +67,9 @@ describe("loadSettings", () => {
     plugin.loadData = jest.fn().mockResolvedValue([]);
 
     await expect(
-      (plugin as unknown as { loadSettings: () => Promise<void> }).loadSettings()
+      (
+        plugin as unknown as { loadSettings: () => Promise<void> }
+      ).loadSettings()
     ).rejects.toThrow("Unexpected response from settings data load");
   });
 
@@ -74,7 +78,9 @@ describe("loadSettings", () => {
     plugin.loadData = jest.fn().mockResolvedValue("invalid");
 
     await expect(
-      (plugin as unknown as { loadSettings: () => Promise<void> }).loadSettings()
+      (
+        plugin as unknown as { loadSettings: () => Promise<void> }
+      ).loadSettings()
     ).rejects.toThrow("Unexpected response from settings data load");
   });
 
@@ -83,7 +89,9 @@ describe("loadSettings", () => {
     plugin.loadData = jest.fn().mockResolvedValue(123);
 
     await expect(
-      (plugin as unknown as { loadSettings: () => Promise<void> }).loadSettings()
+      (
+        plugin as unknown as { loadSettings: () => Promise<void> }
+      ).loadSettings()
     ).rejects.toThrow("Unexpected response from settings data load");
   });
 });
@@ -136,7 +144,10 @@ describe("validateSettings", () => {
       }
     });
 
-    const validateSettings = getPrivateMethod<() => boolean>(plugin, "validateSettings");
+    const validateSettings = getPrivateMethod<() => boolean>(
+      plugin,
+      "validateSettings"
+    );
     const result = validateSettings();
 
     expect(result).toBe(false);
@@ -153,7 +164,10 @@ describe("validateSettings", () => {
       }
     });
 
-    const validateSettings = getPrivateMethod<() => boolean>(plugin, "validateSettings");
+    const validateSettings = getPrivateMethod<() => boolean>(
+      plugin,
+      "validateSettings"
+    );
     const result = validateSettings();
 
     expect(result).toBe(false);
@@ -170,7 +184,10 @@ describe("validateSettings", () => {
       }
     });
 
-    const validateSettings = getPrivateMethod<() => boolean>(plugin, "validateSettings");
+    const validateSettings = getPrivateMethod<() => boolean>(
+      plugin,
+      "validateSettings"
+    );
     const result = validateSettings();
 
     expect(result).toBe(false);
@@ -184,7 +201,10 @@ describe("validateSettings", () => {
       secrets: new Map() // Empty secrets
     });
 
-    const validateSettings = getPrivateMethod<() => boolean>(plugin, "validateSettings");
+    const validateSettings = getPrivateMethod<() => boolean>(
+      plugin,
+      "validateSettings"
+    );
     const result = validateSettings();
 
     expect(result).toBe(false);
@@ -196,7 +216,10 @@ describe("validateSettings", () => {
   it("should return true when all settings are valid", async () => {
     const plugin = await createTestPlugin();
 
-    const validateSettings = getPrivateMethod<() => boolean>(plugin, "validateSettings");
+    const validateSettings = getPrivateMethod<() => boolean>(
+      plugin,
+      "validateSettings"
+    );
     const result = validateSettings();
 
     expect(result).toBe(true);
