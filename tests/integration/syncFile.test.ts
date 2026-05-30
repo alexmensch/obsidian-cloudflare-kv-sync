@@ -451,6 +451,29 @@ describe("syncFile", () => {
     });
   });
 
+  describe("Unbuildable KV key", () => {
+    it("should error (not upload a null key) when the re-read frontmatter still has no id", async () => {
+      // Frontmatter race: the file is marked for sync with no id, so an id is
+      // assigned, but the subsequent re-read still yields no usable id, leaving
+      // buildKVKey null. The guard must fail loudly rather than PUT a null key.
+      const file = createMockTFile("test.md");
+      (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(
+        "---\nkv_sync: true\n---\nContent"
+      );
+      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true });
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockResolvedValue(undefined);
+
+      const result = await syncFile(file);
+
+      expect(result.skipped).toBe(false);
+      expect(result.error).toContain("Unable to build KV key");
+      expect(result.sync).toBeUndefined();
+      expect(requestUrl).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Delete old fails", () => {
     it("should return error and not upload when delete of old key fails", async () => {
       // Pre-populate cache with old collection

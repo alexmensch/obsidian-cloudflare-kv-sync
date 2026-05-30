@@ -165,6 +165,30 @@ describe("debouncedFileSync", () => {
     );
   });
 
+  it("should log when the debounced sync itself rejects", async () => {
+    // syncSingleFile normally swallows its own errors; if it ever rejects
+    // outright (e.g. an unexpected throw), the debounced wrapper must catch and
+    // log it so the timer callback can't leak an unhandled rejection.
+    const file = createMockTFile("test.md");
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
+    (
+      plugin as unknown as { syncSingleFile: (f: TFile) => Promise<void> }
+    ).syncSingleFile = jest.fn().mockRejectedValue(new Error("boom"));
+
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
+
+    debouncedFileSync(file);
+    await jest.advanceTimersByTimeAsync(60000);
+
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+      "Cloudflare KV Sync error log.md",
+      expect.stringContaining("Error in debounced sync of test.md")
+    );
+  });
+
   it("should use configured debounce delay", async () => {
     // Change debounce delay to 30 seconds
     plugin.settings.debounceDelay = 30;

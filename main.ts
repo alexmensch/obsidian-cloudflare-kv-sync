@@ -12,6 +12,10 @@ import {
 
 const ERROR_LOG_FILE = "Cloudflare KV Sync error log.md";
 
+// Cap the error log so a misconfigured auto-sync can't balloon a vault file.
+// At the cap we keep roughly the newest half; normal writes just append.
+const MAX_ERROR_LOG_BYTES = 1_000_000;
+
 interface CloudflareKVSettings {
   accountId: string;
   namespaceId: string;
@@ -54,38 +58,59 @@ const SKIPPED_SYNC_RESULT: SyncResult = {
   skipped: true
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Accumulates per-item results for a batch operation (sync-all, orphan cleanup)
+// so the surrounding method doesn't hand-roll the success/failure/error tally.
+class BatchOutcome {
+  successful = 0;
+  failed = 0;
+  readonly errors: string[] = [];
+
+  recordSuccess(): void {
+    this.successful++;
+  }
+
+  recordFailure(message: string): void {
+    this.failed++;
+    this.errors.push(message);
+  }
+}
+
 export default class CloudflareKVPlugin extends Plugin {
-  settings: CloudflareKVSettings;
+  settings!: CloudflareKVSettings;
   private syncTimeouts: Map<string, number> = new Map();
   private syncedFiles: Map<string, string> = new Map();
-  private cache: CloudflareKVCache;
   private static cacheFile: string = "cache.json";
-  private loadedSuccesfully: boolean = false;
+  private loadedSuccessfully: boolean = false;
+
+  private get cachePath(): string {
+    return `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`;
+  }
 
   async onload() {
     try {
       await this.loadSettings();
       await this.loadCache();
       this.addSettingTab(new CloudflareKVSettingsTab(this.app, this));
-      this.loadedSuccesfully = true;
+      this.loadedSuccessfully = true;
     } catch (e) {
       new Notice(
         "Cloudflare kv sync plugin failed to load. See error log for details."
       );
-      void this.writeErrorLog(`Plugin failed to load: ${e}`);
+      void this.writeErrorLog(`Plugin failed to load: ${String(e)}`);
       return;
     }
 
-    if (this.loadedSuccesfully) {
-      this.registerCommands();
-      this.registerEvents();
-    }
+    this.registerCommands();
+    this.registerEvents();
   }
 
   private registerCommands() {
     this.addRibbonIcon("cloud-upload", "Sync to cloudflare kv", () => {
-      void this.syncAllFiles();
-      void this.removeOrphanedUploads();
+      void this.syncAllAndCleanup();
     });
 
     this.addCommand({
@@ -105,22 +130,33 @@ export default class CloudflareKVPlugin extends Plugin {
       id: "sync-all-files-to-kv",
       name: "Sync all marked files to cloudflare kv",
       callback: () => {
-        void this.syncAllFiles();
-        void this.removeOrphanedUploads();
+        void this.syncAllAndCleanup();
       }
     });
   }
 
+  // Sync-all and orphan cleanup both mutate syncedFiles and write cache.json.
+  // They must run sequentially — concurrent runs corrupt the map mid-iteration
+  // and race the cache write (last-writer-wins).
+  private async syncAllAndCleanup(): Promise<void> {
+    await this.syncAllFiles();
+    await this.removeOrphanedUploads();
+  }
+
   private registerEvents() {
-    if (this.settings.autoSync) {
-      this.registerEvent(
-        this.app.vault.on("modify", (file) => {
-          if (file instanceof TFile && file.extension === "md") {
-            this.debouncedFileSync(file);
-          }
-        })
-      );
-    }
+    // Register unconditionally and gate on the live setting inside the handler,
+    // so toggling auto-sync takes effect immediately without a plugin reload.
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (
+          this.settings.autoSync &&
+          file instanceof TFile &&
+          file.extension === "md"
+        ) {
+          this.debouncedFileSync(file);
+        }
+      })
+    );
   }
 
   private debouncedFileSync(file: TFile) {
@@ -133,7 +169,7 @@ export default class CloudflareKVPlugin extends Plugin {
       this.syncSingleFile(file)
         .catch((error) => {
           void this.writeErrorLog(
-            `Error in debounced sync of ${file.path}: ${error}`
+            `Error in debounced sync of ${file.path}: ${String(error)}`
           );
         })
         .finally(() => {
@@ -157,8 +193,8 @@ export default class CloudflareKVPlugin extends Plugin {
       // failure; the command/ribbon callbacks fire this with `void`, so an
       // uncaught rejection would float. Log it and still persist any partial
       // cache mutation.
-      await this.writeErrorLog(`Error syncing ${file.path}: ${error}`);
-      if (notifyOutcome) new Notice(`Error syncing: ${error}`);
+      await this.writeErrorLog(`Error syncing ${file.path}: ${String(error)}`);
+      if (notifyOutcome) new Notice(`Error syncing: ${String(error)}`);
       await this.saveCache();
       return;
     }
@@ -189,9 +225,7 @@ export default class CloudflareKVPlugin extends Plugin {
 
     await this.detectAndFixDuplicates(files);
 
-    let successful = 0;
-    let failed = 0;
-    const errorMessages: string[] = [];
+    const outcome = new BatchOutcome();
 
     for (const file of files) {
       try {
@@ -200,16 +234,14 @@ export default class CloudflareKVPlugin extends Plugin {
         if (syncResult.skipped === false) {
           if (syncResult.sync) {
             if (syncResult.sync.success === true) {
-              successful++;
+              outcome.recordSuccess();
             } else {
-              failed++;
-              errorMessages.push(
+              outcome.recordFailure(
                 `API error syncing ${file.path}: ${syncResult.sync.error}`
               );
             }
           } else if (syncResult.error) {
-            failed++;
-            errorMessages.push(
+            outcome.recordFailure(
               `Sync error for ${file.path}: ${syncResult.error}`
             );
           }
@@ -217,18 +249,34 @@ export default class CloudflareKVPlugin extends Plugin {
       } catch (error) {
         // A single file's failure must not abort the batch or leave the cache
         // unsaved — route it to the log and keep going.
-        failed++;
-        errorMessages.push(`Unexpected error syncing ${file.path}: ${error}`);
+        outcome.recordFailure(
+          `Unexpected error syncing ${file.path}: ${String(error)}`
+        );
       }
     }
 
+    await this.finishBatch(outcome, "Sync complete", true);
+  }
+
+  // Persists the cache, logs any accumulated errors, and surfaces a summary
+  // notice — the shared tail of every batch operation. `notifyWhenEmpty`
+  // controls whether the notice fires when nothing was processed.
+  private async finishBatch(
+    outcome: BatchOutcome,
+    completeLabel: string,
+    notifyWhenEmpty: boolean
+  ): Promise<void> {
     await this.saveCache();
 
-    if (errorMessages.length > 0) {
-      await this.writeErrorLog(errorMessages);
+    if (outcome.errors.length > 0) {
+      await this.writeErrorLog(outcome.errors);
     }
 
-    new Notice(`ℹ️ Sync complete: ${successful} successful, ${failed} failed`);
+    if (notifyWhenEmpty || outcome.successful > 0 || outcome.failed > 0) {
+      new Notice(
+        `ℹ️ ${completeLabel}: ${outcome.successful} successful, ${outcome.failed} failed`
+      );
+    }
   }
 
   private async syncFile(file: TFile): Promise<SyncResult> {
@@ -276,6 +324,13 @@ export default class CloudflareKVPlugin extends Plugin {
     // File is marked for sync (syncValue guaranteed true at this point)
     result.skipped = false;
 
+    if (!currentKVKey) {
+      // docId is guaranteed above, so buildKVKey only returns null on a
+      // malformed frontmatter race; fail loudly rather than PUT a null key.
+      result.error = `Unable to build KV key for ${file.name}`;
+      return result;
+    }
+
     if (previousKVKey && previousKVKey !== currentKVKey) {
       // File's sync key has changed
       const deleteResult = await this.deleteFromKV(previousKVKey);
@@ -303,34 +358,21 @@ export default class CloudflareKVPlugin extends Plugin {
         entriesToRemove.push({ filePath, kvKey });
     }
 
-    let successful = 0;
-    let failed = 0;
-    const errorMessages: string[] = [];
+    const outcome = new BatchOutcome();
 
     for (const { filePath, kvKey } of entriesToRemove) {
       const result = await this.deleteFromKV(kvKey);
       if (result.success === true) {
-        successful++;
+        outcome.recordSuccess();
         this.syncedFiles.delete(filePath);
       } else {
-        failed++;
-        errorMessages.push(
+        outcome.recordFailure(
           `API error removing orphan ${kvKey}: ${result.error}`
         );
       }
     }
 
-    await this.saveCache();
-
-    if (errorMessages.length > 0) {
-      await this.writeErrorLog(errorMessages);
-    }
-
-    if (successful > 0 || failed > 0) {
-      new Notice(
-        `ℹ️ Cleanup complete: ${successful} successful, ${failed} failed`
-      );
-    }
+    await this.finishBatch(outcome, "Cleanup complete", false);
   }
 
   private async getFrontmatter(
@@ -344,23 +386,25 @@ export default class CloudflareKVPlugin extends Plugin {
 
       try {
         const raw: unknown = parseYaml(frontmatterMatch[1]);
-        if (raw && typeof raw === "object" && !Array.isArray(raw))
-          return raw as Record<string, unknown>;
+        if (isPlainObject(raw)) return raw;
         return null;
       } catch (error) {
         void this.writeErrorLog(
-          `Error parsing frontmatter in ${file.name}: ${error}`
+          `Error parsing frontmatter in ${file.name}: ${String(error)}`
         );
         return null;
       }
     } catch (error) {
-      void this.writeErrorLog(`Error reading file ${file.name}: ${error}`);
+      void this.writeErrorLog(
+        `Error reading file ${file.name}: ${String(error)}`
+      );
       return null;
     }
   }
 
   private buildKVKey(frontmatter: Record<string, unknown>): string | null {
     const docId = this.coerceString(frontmatter[this.settings.idKey]);
+    if (!docId) return null;
     const collection = this.coerceString(frontmatter["collection"]);
 
     return collection ? `${collection}/${docId}` : docId;
@@ -412,10 +456,9 @@ export default class CloudflareKVPlugin extends Plugin {
     }
 
     const raw: unknown = JSON.parse(response.text);
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      const data = raw as Record<string, unknown>;
-      if (!data.success) {
-        return { success: false, error: `${JSON.stringify(data.errors)}` };
+    if (isPlainObject(raw)) {
+      if (!raw.success) {
+        return { success: false, error: `${JSON.stringify(raw.errors)}` };
       }
       return { success: true };
     }
@@ -430,10 +473,8 @@ export default class CloudflareKVPlugin extends Plugin {
   }): string {
     try {
       const raw: unknown = JSON.parse(response.text);
-      if (raw && typeof raw === "object" && "errors" in raw) {
-        return `HTTP ${response.status}: ${JSON.stringify(
-          (raw as Record<string, unknown>).errors
-        )}`;
+      if (isPlainObject(raw) && "errors" in raw) {
+        return `HTTP ${response.status}: ${JSON.stringify(raw.errors)}`;
       }
     } catch {
       // Non-JSON error body (e.g. an HTML error page) — fall back to status.
@@ -458,20 +499,30 @@ export default class CloudflareKVPlugin extends Plugin {
     };
   }
 
+  // Validates that persisted JSON is an object and merges it over the defaults.
+  // `describeInvalid` builds the caller-specific error for non-object payloads.
+  private mergeWithDefaults<T extends object>(
+    raw: unknown,
+    defaults: T,
+    describeInvalid: (type: string) => string
+  ): T {
+    if (!isPlainObject(raw)) {
+      throw new Error(describeInvalid(typeof raw));
+    }
+    return Object.assign({}, defaults, raw);
+  }
+
   private async loadSettings() {
     const raw: unknown = await this.loadData();
-    if (raw === null) {
-      this.settings = Object.assign({}, DEFAULT_SETTINGS);
-    } else {
-      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-        const settingsData = raw as Record<string, unknown>;
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, settingsData);
-      } else {
-        throw new Error(
-          `Unexpected response from settings data load, loadData response is ${typeof raw}`
-        );
-      }
-    }
+    this.settings =
+      raw === null
+        ? Object.assign({}, DEFAULT_SETTINGS)
+        : this.mergeWithDefaults(
+            raw,
+            DEFAULT_SETTINGS,
+            (type) =>
+              `Unexpected response from settings data load, loadData response is ${type}`
+          );
   }
 
   async saveSettings() {
@@ -502,42 +553,39 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   private async loadCache() {
-    const cacheFile = `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`;
+    let syncedFiles: Record<string, string> = {};
 
-    if (await this.app.vault.adapter.exists(cacheFile)) {
-      const cacheData = await this.app.vault.adapter.read(cacheFile);
-      const raw: unknown = JSON.parse(cacheData);
-      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-        const parsed = raw as Record<string, unknown>;
-        this.cache = Object.assign({}, DEFAULT_CACHE, parsed);
-      } else {
-        throw new Error(
-          `Unable to parse cache file, parsed object was type ${typeof raw}`
-        );
-      }
-    } else {
-      this.cache = Object.assign({}, DEFAULT_CACHE);
+    if (await this.app.vault.adapter.exists(this.cachePath)) {
+      const raw: unknown = JSON.parse(
+        await this.app.vault.adapter.read(this.cachePath)
+      );
+      const cache = this.mergeWithDefaults(
+        raw,
+        DEFAULT_CACHE,
+        (type) => `Unable to parse cache file, parsed object was type ${type}`
+      );
+      syncedFiles = cache.syncedFiles;
     }
 
     try {
-      this.syncedFiles = new Map(Object.entries(this.cache.syncedFiles));
-      /* istanbul ignore next */
+      this.syncedFiles = new Map(Object.entries(syncedFiles));
     } catch (e) {
-      throw new Error(`Failed to read cached data: ${e}`);
+      /* istanbul ignore next -- Object.entries/new Map can't throw on a validated record */
+      throw new Error(`Failed to read cached data: ${String(e)}`);
     }
   }
 
   private async saveCache() {
     try {
-      this.cache.syncedFiles = Object.fromEntries(this.syncedFiles);
-
-      const cacheJson = JSON.stringify(this.cache, null, 2);
+      const cache: CloudflareKVCache = {
+        syncedFiles: Object.fromEntries(this.syncedFiles)
+      };
       await this.app.vault.adapter.write(
-        `${this.manifest.dir}/${CloudflareKVPlugin.cacheFile}`,
-        cacheJson
+        this.cachePath,
+        JSON.stringify(cache, null, 2)
       );
     } catch (error) {
-      await this.writeErrorLog(`Error saving cache: ${error}`);
+      await this.writeErrorLog(`Error saving cache: ${String(error)}`);
     }
   }
 
@@ -554,16 +602,36 @@ export default class CloudflareKVPlugin extends Plugin {
     const lines = Array.isArray(messages) ? messages : [messages];
     const entry = `${this.formatErrorLogHeader()}${lines.map((m) => `- ${m}`).join("\n")}\n`;
 
+    const adapter = this.app.vault.adapter;
     try {
-      if (await this.app.vault.adapter.exists(ERROR_LOG_FILE)) {
-        const existing = await this.app.vault.adapter.read(ERROR_LOG_FILE);
-        await this.app.vault.adapter.write(ERROR_LOG_FILE, existing + entry);
+      if (!(await adapter.exists(ERROR_LOG_FILE))) {
+        await adapter.write(ERROR_LOG_FILE, entry);
+        return;
+      }
+
+      // Hot path: append in O(1) — no full-file read. Only when the log
+      // crosses the cap do we pay a read+rewrite to drop the oldest entries.
+      const stat = await adapter.stat(ERROR_LOG_FILE);
+      if (stat && stat.size > MAX_ERROR_LOG_BYTES) {
+        const existing = await adapter.read(ERROR_LOG_FILE);
+        await adapter.write(
+          ERROR_LOG_FILE,
+          this.trimErrorLog(existing) + entry
+        );
       } else {
-        await this.app.vault.adapter.write(ERROR_LOG_FILE, entry);
+        await adapter.append(ERROR_LOG_FILE, entry);
       }
     } catch (error) {
       console.error("Failed to write error log:", error);
     }
+  }
+
+  // Keep roughly the newest half of the log, cut at an entry boundary so the
+  // retained text starts with a whole `## <datetime>` header.
+  private trimErrorLog(existing: string): string {
+    const tail = existing.slice(-Math.floor(MAX_ERROR_LOG_BYTES / 2));
+    const boundary = tail.indexOf("\n## ");
+    return boundary >= 0 ? tail.slice(boundary + 1) : tail;
   }
 
   private generateId(): string {
@@ -622,7 +690,7 @@ export default class CloudflareKVPlugin extends Plugin {
   }
 
   onunload() {
-    if (this.loadedSuccesfully) {
+    if (this.loadedSuccessfully) {
       /* istanbul ignore next */
       this.saveCache().catch(() => {});
       this.unregisterEvents();
@@ -741,7 +809,13 @@ class CloudflareKVSettingsTab extends PluginSettingTab {
           .setPlaceholder(DEFAULT_SETTINGS.debounceDelay.toString())
           .setValue(this.plugin.settings.debounceDelay.toString())
           .onChange(async (value) => {
-            this.plugin.settings.debounceDelay = parseInt(value);
+            const parsed = parseInt(value, 10);
+            // NaN or negative input would make setTimeout fire immediately;
+            // fall back to the default delay instead.
+            this.plugin.settings.debounceDelay =
+              Number.isFinite(parsed) && parsed >= 0
+                ? parsed
+                : DEFAULT_SETTINGS.debounceDelay;
             await this.plugin.saveSettings();
           })
       );

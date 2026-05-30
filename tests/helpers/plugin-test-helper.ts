@@ -48,7 +48,7 @@ export async function createTestPlugin(
     new Map();
   (plugin as unknown as { syncedFiles: Map<string, string> }).syncedFiles =
     new Map();
-  (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully =
+  (plugin as unknown as { loadedSuccessfully: boolean }).loadedSuccessfully =
     false;
 
   // Mock loadData and saveData

@@ -47,8 +47,8 @@ describe("Plugin lifecycle", () => {
         freshPlugin as unknown as { syncedFiles: Map<string, string> }
       ).syncedFiles = new Map();
       (
-        freshPlugin as unknown as { loadedSuccesfully: boolean }
-      ).loadedSuccesfully = false;
+        freshPlugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = false;
 
       freshPlugin.loadData = jest.fn().mockResolvedValue({
         accountId: "test",
@@ -65,8 +65,8 @@ describe("Plugin lifecycle", () => {
 
       expect(freshPlugin.addSettingTab).toHaveBeenCalled();
       expect(
-        (freshPlugin as unknown as { loadedSuccesfully: boolean })
-          .loadedSuccesfully
+        (freshPlugin as unknown as { loadedSuccessfully: boolean })
+          .loadedSuccessfully
       ).toBe(true);
     });
 
@@ -87,8 +87,8 @@ describe("Plugin lifecycle", () => {
         freshPlugin as unknown as { syncedFiles: Map<string, string> }
       ).syncedFiles = new Map();
       (
-        freshPlugin as unknown as { loadedSuccesfully: boolean }
-      ).loadedSuccesfully = false;
+        freshPlugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = false;
 
       // Make loadData throw
       freshPlugin.loadData = jest
@@ -108,8 +108,8 @@ describe("Plugin lifecycle", () => {
         expect.stringContaining("failed to load")
       );
       expect(
-        (freshPlugin as unknown as { loadedSuccesfully: boolean })
-          .loadedSuccesfully
+        (freshPlugin as unknown as { loadedSuccessfully: boolean })
+          .loadedSuccessfully
       ).toBe(false);
       // Should not register commands on failure
       expect(freshPlugin.addRibbonIcon).not.toHaveBeenCalled();
@@ -132,8 +132,8 @@ describe("Plugin lifecycle", () => {
         freshPlugin as unknown as { syncedFiles: Map<string, string> }
       ).syncedFiles = new Map();
       (
-        freshPlugin as unknown as { loadedSuccesfully: boolean }
-      ).loadedSuccesfully = false;
+        freshPlugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = false;
       freshPlugin.settings = { ...plugin.settings, autoSync: false };
 
       freshPlugin.loadData = jest.fn().mockResolvedValue({
@@ -162,8 +162,9 @@ describe("Plugin lifecycle", () => {
 
     it("should save cache on unload when loaded successfully", async () => {
       // Set loadedSuccessfully to true
-      (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully =
-        true;
+      (
+        plugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = true;
 
       // Add a file to the cache
       const syncedFiles = getPrivateProperty<Map<string, string>>(
@@ -182,8 +183,9 @@ describe("Plugin lifecycle", () => {
     });
 
     it("should clear timeouts on unload", async () => {
-      (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully =
-        true;
+      (
+        plugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = true;
 
       // Add a timeout
       const syncTimeouts = getPrivateProperty<Map<string, NodeJS.Timeout>>(
@@ -201,8 +203,9 @@ describe("Plugin lifecycle", () => {
     });
 
     it("should not save cache if plugin did not load successfully", async () => {
-      (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully =
-        false;
+      (
+        plugin as unknown as { loadedSuccessfully: boolean }
+      ).loadedSuccessfully = false;
 
       plugin.onunload();
 
@@ -393,8 +396,10 @@ describe("Plugin lifecycle", () => {
       jest.useRealTimers();
     });
 
-    it("should register modify event when autoSync is enabled", () => {
-      plugin.settings.autoSync = true;
+    it("should register the modify listener regardless of autoSync setting", () => {
+      // Registered unconditionally so toggling auto-sync takes effect without
+      // a reload; the autoSync check now lives inside the handler.
+      plugin.settings.autoSync = false;
 
       const registerEvents = getPrivateMethod<() => void>(
         plugin,
@@ -405,8 +410,20 @@ describe("Plugin lifecycle", () => {
       expect(plugin.registerEvent).toHaveBeenCalled();
     });
 
-    it("should not register modify event when autoSync is disabled", () => {
+    it("should not debounce-sync on modify when autoSync is disabled", () => {
       plugin.settings.autoSync = false;
+
+      let modifyCallback: ((file: TFile) => void) | null = null;
+      (plugin.app.vault.on as jest.Mock) = jest
+        .fn()
+        .mockImplementation(
+          (event: string, callback: (file: TFile) => void) => {
+            if (event === "modify") {
+              modifyCallback = callback;
+            }
+            return { event, callback };
+          }
+        );
 
       const registerEvents = getPrivateMethod<() => void>(
         plugin,
@@ -414,7 +431,52 @@ describe("Plugin lifecycle", () => {
       );
       registerEvents();
 
-      expect(plugin.registerEvent).not.toHaveBeenCalled();
+      const file = createMockTFile("test.md");
+      if (modifyCallback) {
+        modifyCallback(file);
+      }
+
+      const syncTimeouts = getPrivateProperty<Map<string, NodeJS.Timeout>>(
+        plugin,
+        "syncTimeouts"
+      );
+      expect(syncTimeouts.has(file.path)).toBe(false);
+    });
+
+    it("should debounce-sync on modify once autoSync is toggled on (no reload)", () => {
+      // Listener registered while autoSync was off, then enabled at runtime.
+      plugin.settings.autoSync = false;
+
+      let modifyCallback: ((file: TFile) => void) | null = null;
+      (plugin.app.vault.on as jest.Mock) = jest
+        .fn()
+        .mockImplementation(
+          (event: string, callback: (file: TFile) => void) => {
+            if (event === "modify") {
+              modifyCallback = callback;
+            }
+            return { event, callback };
+          }
+        );
+
+      const registerEvents = getPrivateMethod<() => void>(
+        plugin,
+        "registerEvents"
+      );
+      registerEvents();
+
+      plugin.settings.autoSync = true;
+
+      const file = createMockTFile("test.md");
+      if (modifyCallback) {
+        modifyCallback(file);
+      }
+
+      const syncTimeouts = getPrivateProperty<Map<string, NodeJS.Timeout>>(
+        plugin,
+        "syncTimeouts"
+      );
+      expect(syncTimeouts.has(file.path)).toBe(true);
     });
 
     it("should trigger debounced sync on markdown file modify", async () => {

@@ -25,22 +25,67 @@ describe("writeErrorLog", () => {
     );
   });
 
-  it("should append to existing error log file", async () => {
+  it("should append (not read+rewrite) to an existing under-cap log", async () => {
     (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
-    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(
-      "\n## 2026-01-01T00:00:00.000Z\n- Previous error\n"
-    );
+    (plugin.app.vault.adapter.stat as jest.Mock).mockResolvedValue({ size: 0 });
+    // createTestPlugin's loadCache already read/wrote cache.json; only care
+    // about calls made by writeErrorLog itself.
+    (plugin.app.vault.adapter.read as jest.Mock).mockClear();
+    (plugin.app.vault.adapter.write as jest.Mock).mockClear();
 
     await writeErrorLog("New error message");
 
-    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
-      "Cloudflare KV Sync error log.md",
-      expect.stringContaining("- Previous error")
-    );
-    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+    // Hot path appends in O(1) — no full-file read or rewrite.
+    expect(plugin.app.vault.adapter.append).toHaveBeenCalledWith(
       "Cloudflare KV Sync error log.md",
       expect.stringContaining("- New error message")
     );
+    expect(plugin.app.vault.adapter.read).not.toHaveBeenCalled();
+    expect(plugin.app.vault.adapter.write).not.toHaveBeenCalled();
+  });
+
+  it("should rotate the log when it exceeds the size cap", async () => {
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
+    (plugin.app.vault.adapter.stat as jest.Mock).mockResolvedValue({
+      size: 2_000_000
+    });
+    // Oldest entry should be dropped; a more recent one kept.
+    const existing =
+      "\n## 1 Jan 2020, 00:00:00\n- Ancient error\n" +
+      "x".repeat(1_500_000) +
+      "\n## 2 Jan 2020, 00:00:00\n- Recent error\n";
+    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(existing);
+
+    await writeErrorLog("New error message");
+
+    expect(plugin.app.vault.adapter.append).not.toHaveBeenCalled();
+    const rewritten = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0][1] as string;
+    expect(rewritten).toContain("- Recent error");
+    expect(rewritten).toContain("- New error message");
+    expect(rewritten).not.toContain("- Ancient error");
+    // Trimmed content starts at a whole entry header.
+    expect(rewritten.startsWith("## ")).toBe(true);
+    expect(rewritten.length).toBeLessThan(existing.length);
+  });
+
+  it("should keep the raw tail when the kept slice spans no entry boundary", async () => {
+    // One giant entry with no `## ` header in the retained tail — the trim
+    // falls back to keeping the slice verbatim rather than dropping everything.
+    (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
+    (plugin.app.vault.adapter.stat as jest.Mock).mockResolvedValue({
+      size: 2_000_000
+    });
+    const existing = "\n## 1 Jan 2020, 00:00:00\n- " + "y".repeat(1_500_000);
+    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(existing);
+
+    await writeErrorLog("New error message");
+
+    const rewritten = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0][1] as string;
+    expect(rewritten).toContain("- New error message");
+    expect(rewritten).not.toContain("## 1 Jan 2020");
+    expect(rewritten.length).toBeLessThan(existing.length);
   });
 
   it("should handle array of messages", async () => {
