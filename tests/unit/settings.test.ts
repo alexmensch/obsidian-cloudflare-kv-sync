@@ -152,7 +152,7 @@ describe("validateSettings", () => {
 
     expect(result).toBe(false);
     expect(noticeMock).toHaveBeenCalledWith(
-      "Cloudflare kv sync plugin requires configuration"
+      "Cloudflare KV Sync plugin requires configuration"
     );
   });
 
@@ -172,7 +172,7 @@ describe("validateSettings", () => {
 
     expect(result).toBe(false);
     expect(noticeMock).toHaveBeenCalledWith(
-      "Cloudflare kv sync plugin requires configuration"
+      "Cloudflare KV Sync plugin requires configuration"
     );
   });
 
@@ -192,7 +192,7 @@ describe("validateSettings", () => {
 
     expect(result).toBe(false);
     expect(noticeMock).toHaveBeenCalledWith(
-      "Cloudflare kv sync plugin requires configuration"
+      "Cloudflare KV Sync plugin requires configuration"
     );
   });
 

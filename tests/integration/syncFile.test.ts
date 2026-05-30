@@ -499,7 +499,7 @@ describe("syncFile", () => {
       const result = await syncFile(file);
 
       expect(result.skipped).toBe(false);
-      expect(result.error).toContain("Unable to delete old kv entry");
+      expect(result.error).toContain("Unable to delete old KV entry");
       expect(result.sync).toBeUndefined();
 
       // Should only have called DELETE, not PUT
