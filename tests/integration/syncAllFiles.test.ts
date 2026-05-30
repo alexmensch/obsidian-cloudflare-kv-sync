@@ -243,6 +243,59 @@ describe("syncAllFiles", () => {
     );
   });
 
+  it("should not abort the batch when one file's request throws", async () => {
+    const file1 = createMockTFile("file1.md");
+    const file2 = createMockTFile("file2.md");
+    const file3 = createMockTFile("file3.md");
+
+    (plugin.app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([
+      file1,
+      file2,
+      file3
+    ]);
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md")
+          return "---\nkv_sync: true\nid: id1\n---\n";
+        if (file.path === "file2.md")
+          return "---\nkv_sync: true\nid: id2\n---\n";
+        if (file.path === "file3.md")
+          return "---\nkv_sync: true\nid: id3\n---\n";
+        return "";
+      }
+    );
+    (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
+      if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
+      if (yaml.includes("id2")) return { kv_sync: true, id: "id2" };
+      if (yaml.includes("id3")) return { kv_sync: true, id: "id3" };
+      return {};
+    });
+
+    // file2's request rejects (network error / requestUrl throw). The batch
+    // must still process file3 and persist the cache.
+    (requestUrl as jest.Mock)
+      .mockResolvedValueOnce(mockSuccessResponse())
+      .mockRejectedValueOnce(new Error("Connection refused"))
+      .mockResolvedValueOnce(mockSuccessResponse());
+
+    await syncAllFiles();
+
+    expect(requestUrl).toHaveBeenCalledTimes(3);
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("2 successful")
+    );
+    expect(noticeMock).toHaveBeenCalledWith(
+      expect.stringContaining("1 failed")
+    );
+    // Cache persisted despite the mid-batch throw.
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalled();
+    // The throwing file was logged.
+    expect(plugin.app.vault.adapter.write).toHaveBeenCalledWith(
+      "Cloudflare KV Sync error log.md",
+      expect.stringContaining("file2.md")
+    );
+  });
+
   it("should count as failed when key change deletion fails (error path without sync result)", async () => {
     const file1 = createMockTFile("file1.md");
 

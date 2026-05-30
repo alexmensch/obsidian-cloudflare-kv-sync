@@ -9,7 +9,9 @@ import {
   mockErrorResponse,
   mockInvalidJsonResponse,
   mockArrayResponse,
-  mockNetworkError
+  mockNetworkError,
+  mockHttpErrorResponse,
+  mockHttpErrorResponseNonJson
 } from "../mocks/cloudflare-mocks";
 
 type KVRequestResult = { success: true } | { success: false; error: string };
@@ -37,6 +39,7 @@ describe("kvRequest", () => {
       expect(requestUrl).toHaveBeenCalledWith({
         url: expect.stringContaining("/values/test-key"),
         method: "PUT",
+        throw: false,
         headers: {
           Authorization: "Bearer test-token",
           "Content-Type": "text/plain"
@@ -101,6 +104,7 @@ describe("kvRequest", () => {
       expect(requestUrl).toHaveBeenCalledWith({
         url: expect.stringContaining("/values/test-key"),
         method: "DELETE",
+        throw: false,
         headers: {
           Authorization: "Bearer test-token"
         }
@@ -169,8 +173,60 @@ describe("kvRequest", () => {
     });
   });
 
+  describe("HTTP status handling", () => {
+    it("should pass throw:false so requestUrl does not throw on 4xx", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+      await kvRequest("test-key", "PUT", "content");
+
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({ throw: false })
+      );
+    });
+
+    it("should return a failure result (not throw) on HTTP 401", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(
+        mockHttpErrorResponse(401, [
+          { code: 10000, message: "Authentication error" }
+        ])
+      );
+
+      const result = await kvRequest("test-key", "PUT", "content");
+
+      expect(result.success).toBe(false);
+      if (result.success === false) {
+        expect(result.error).toContain("401");
+        expect(result.error).toContain("Authentication error");
+      }
+    });
+
+    it("should return a failure result on HTTP 404 for DELETE", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(mockHttpErrorResponse(404));
+
+      const result = await kvRequest("missing-key", "DELETE");
+
+      expect(result.success).toBe(false);
+      if (result.success === false) {
+        expect(result.error).toContain("404");
+      }
+    });
+
+    it("should return a failure result on HTTP 500 with a non-JSON body", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(
+        mockHttpErrorResponseNonJson(500)
+      );
+
+      const result = await kvRequest("test-key", "PUT", "content");
+
+      expect(result.success).toBe(false);
+      if (result.success === false) {
+        expect(result.error).toContain("500");
+      }
+    });
+  });
+
   describe("URL encoding", () => {
-    it("should handle keys with special characters", async () => {
+    it("should keep the collection/id slash literal", async () => {
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       await kvRequest("posts/my-doc-123", "PUT", "content");
@@ -180,6 +236,38 @@ describe("kvRequest", () => {
           url: expect.stringContaining("/values/posts/my-doc-123")
         })
       );
+    });
+
+    it("should leave existing slash-only ASCII keys byte-identical", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+      await kvRequest("path/to/doc", "PUT", "content");
+
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining("/values/path/to/doc")
+        })
+      );
+    });
+
+    it("should percent-encode special characters within each segment", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+      await kvRequest("writing/my post #1", "PUT", "content");
+
+      const url = (requestUrl as jest.Mock).mock.calls[0][0].url as string;
+      // Separator '/' stays literal; the space and '#' are encoded.
+      expect(url).toContain("/values/writing/my%20post%20%231");
+      expect(url).not.toContain("my post #1");
+    });
+
+    it("should encode unicode key segments", async () => {
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+      await kvRequest("café", "DELETE");
+
+      const url = (requestUrl as jest.Mock).mock.calls[0][0].url as string;
+      expect(url).toContain("/values/caf%C3%A9");
     });
   });
 });

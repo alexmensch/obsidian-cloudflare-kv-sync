@@ -104,6 +104,40 @@ describe("syncFile", () => {
       expect(plugin.app.fileManager.processFrontMatter).toHaveBeenCalled();
     });
 
+    it("should treat a numeric id as missing and auto-assign a string id", async () => {
+      // Real parseYaml turns `id: 123` into the number 123, which coerceString
+      // rejects — so the file is treated as having no usable id and gets a
+      // generated one. The forgiving old parseYaml mock (string "123") hid this.
+      const file = createMockTFile("test.md");
+      (plugin.app.vault.cachedRead as jest.Mock)
+        .mockResolvedValueOnce("---\nkv_sync: true\nid: 123\n---\nContent")
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        )
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        );
+      (parseYaml as jest.Mock)
+        .mockReturnValueOnce({ kv_sync: true, id: 123 })
+        .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockResolvedValue(undefined);
+      (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
+
+      const result = await syncFile(file);
+
+      expect(result.skipped).toBe(false);
+      expect(result.sync?.success).toBe(true);
+      expect(plugin.app.fileManager.processFrontMatter).toHaveBeenCalled();
+      // Synced under the generated string id, never under "123".
+      expect(requestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining(`/values/${GENERATED_UUID}`)
+        })
+      );
+    });
+
     it("should auto-assign ID when id is empty string", async () => {
       const file = createMockTFile("test.md");
       (plugin.app.vault.cachedRead as jest.Mock)

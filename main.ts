@@ -149,7 +149,19 @@ export default class CloudflareKVPlugin extends Plugin {
       return;
     }
 
-    const syncResult = await this.syncFile(file);
+    let syncResult: SyncResult;
+    try {
+      syncResult = await this.syncFile(file);
+    } catch (error) {
+      // syncFile may throw on a malformed API body or a frontmatter-write
+      // failure; the command/ribbon callbacks fire this with `void`, so an
+      // uncaught rejection would float. Log it and still persist any partial
+      // cache mutation.
+      await this.writeErrorLog(`Error syncing ${file.path}: ${error}`);
+      if (notifyOutcome) new Notice(`Error syncing: ${error}`);
+      await this.saveCache();
+      return;
+    }
     await this.saveCache();
 
     if (syncResult.skipped === true) {
@@ -182,24 +194,31 @@ export default class CloudflareKVPlugin extends Plugin {
     const errorMessages: string[] = [];
 
     for (const file of files) {
-      const syncResult = await this.syncFile(file);
+      try {
+        const syncResult = await this.syncFile(file);
 
-      if (syncResult.skipped === false) {
-        if (syncResult.sync) {
-          if (syncResult.sync.success === true) {
-            successful++;
-          } else {
+        if (syncResult.skipped === false) {
+          if (syncResult.sync) {
+            if (syncResult.sync.success === true) {
+              successful++;
+            } else {
+              failed++;
+              errorMessages.push(
+                `API error syncing ${file.path}: ${syncResult.sync.error}`
+              );
+            }
+          } else if (syncResult.error) {
             failed++;
             errorMessages.push(
-              `API error syncing ${file.path}: ${syncResult.sync.error}`
+              `Sync error for ${file.path}: ${syncResult.error}`
             );
           }
-        } else if (syncResult.error) {
-          failed++;
-          errorMessages.push(
-            `Sync error for ${file.path}: ${syncResult.error}`
-          );
         }
+      } catch (error) {
+        // A single file's failure must not abort the batch or leave the cache
+        // unsaved — route it to the log and keep going.
+        failed++;
+        errorMessages.push(`Unexpected error syncing ${file.path}: ${error}`);
       }
     }
 
@@ -357,23 +376,40 @@ export default class CloudflareKVPlugin extends Plugin {
     return typeof value === "string" && value.trim() !== "" ? value : undefined;
   }
 
+  private encodeKVKeyForUrl(key: string): string {
+    // Cloudflare's /values/:key route captures the path remainder greedily, so
+    // the '/' separating collection and id must stay literal. Encode each
+    // segment on its own — otherwise a space, '#', '?', '%', or unicode char
+    // misroutes/404s. Slash-free ASCII keys are unchanged, so existing data is
+    // not orphaned.
+    return key.split("/").map(encodeURIComponent).join("/");
+  }
+
   private async kvRequest(
     key: string,
     method: "PUT" | "DELETE",
     body?: string
   ): Promise<KVRequestResult> {
-    const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${key}`;
+    const url = `https://api.cloudflare.com/client/v4/accounts/${this.settings.accountId}/storage/kv/namespaces/${this.settings.namespaceId}/values/${this.encodeKVKeyForUrl(key)}`;
     const apiToken = this.app.secretStorage.getSecret(this.settings.apiToken);
 
+    // throw:false — requestUrl throws on HTTP 400+ by default, which would
+    // escape the per-file batch loop. Inspect status and return a structured
+    // result instead.
     const response = await requestUrl({
       url,
       method,
+      throw: false,
       headers: {
         Authorization: `Bearer ${apiToken}`,
         ...(body ? { "Content-Type": "text/plain" } : {})
       },
       ...(body ? { body } : {})
     });
+
+    if (response.status >= 400) {
+      return { success: false, error: this.describeHttpError(response) };
+    }
 
     const raw: unknown = JSON.parse(response.text);
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -386,6 +422,23 @@ export default class CloudflareKVPlugin extends Plugin {
     throw new Error(
       `Unexpected response from cloudflare kv API, response body is ${typeof raw}`
     );
+  }
+
+  private describeHttpError(response: {
+    status: number;
+    text: string;
+  }): string {
+    try {
+      const raw: unknown = JSON.parse(response.text);
+      if (raw && typeof raw === "object" && "errors" in raw) {
+        return `HTTP ${response.status}: ${JSON.stringify(
+          (raw as Record<string, unknown>).errors
+        )}`;
+      }
+    } catch {
+      // Non-JSON error body (e.g. an HTML error page) — fall back to status.
+    }
+    return `HTTP ${response.status}`;
   }
 
   private async uploadToKV(
