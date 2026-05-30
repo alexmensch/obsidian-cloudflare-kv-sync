@@ -232,7 +232,7 @@ describe("Plugin lifecycle", () => {
 
       expect(plugin.addRibbonIcon).toHaveBeenCalledWith(
         "cloud-upload",
-        "Sync to cloudflare kv",
+        "Sync to Cloudflare KV",
         expect.any(Function)
       );
     });
@@ -247,7 +247,7 @@ describe("Plugin lifecycle", () => {
       expect(plugin.addCommand).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "sync-current-file-to-kv",
-          name: "Sync current file to cloudflare kv"
+          name: "Sync current file to Cloudflare KV"
         })
       );
     });
@@ -262,7 +262,7 @@ describe("Plugin lifecycle", () => {
       expect(plugin.addCommand).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "sync-all-files-to-kv",
-          name: "Sync all marked files to cloudflare kv"
+          name: "Sync all marked files to Cloudflare KV"
         })
       );
     });

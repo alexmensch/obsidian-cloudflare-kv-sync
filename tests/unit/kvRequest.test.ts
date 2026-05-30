@@ -150,7 +150,7 @@ describe("kvRequest", () => {
       (requestUrl as jest.Mock).mockResolvedValue(mockArrayResponse());
 
       await expect(kvRequest("test-key", "PUT", "content")).rejects.toThrow(
-        "Unexpected response from cloudflare kv API"
+        "Unexpected response from Cloudflare KV API"
       );
     });
 

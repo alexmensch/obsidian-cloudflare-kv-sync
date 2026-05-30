@@ -351,7 +351,7 @@ describe("syncSingleFile", () => {
 
     await syncSingleFile(file, true);
 
-    expect(noticeMock).toHaveBeenCalledWith("Successful sync");
+    expect(noticeMock).toHaveBeenCalledWith("✅ Successful sync");
   });
 
   it("should not show notice on successful sync when notifyOutcome is false", async () => {
@@ -364,7 +364,7 @@ describe("syncSingleFile", () => {
 
     await syncSingleFile(file, false);
 
-    expect(noticeMock).not.toHaveBeenCalledWith("Successful sync");
+    expect(noticeMock).not.toHaveBeenCalledWith("✅ Successful sync");
   });
 
   it("should show 'not marked for sync' notice when file is skipped", async () => {
@@ -376,7 +376,7 @@ describe("syncSingleFile", () => {
 
     await syncSingleFile(file, true);
 
-    expect(noticeMock).toHaveBeenCalledWith("File not marked for sync");
+    expect(noticeMock).toHaveBeenCalledWith("ℹ️ File not marked for sync");
   });
 
   it("should show error notice on sync failure", async () => {
