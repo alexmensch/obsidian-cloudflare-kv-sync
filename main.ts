@@ -161,9 +161,7 @@ export default class CloudflareKVPlugin extends Plugin {
         if (notifyOutcome) new Notice("Successful sync");
       } else {
         if (notifyOutcome) new Notice(`Error syncing: ${sync.error}`);
-        await this.writeErrorLog(
-          `Error syncing ${file.path}: ${sync.error}`
-        );
+        await this.writeErrorLog(`Error syncing ${file.path}: ${sync.error}`);
       }
     }
   }
@@ -536,9 +534,7 @@ export default class CloudflareKVPlugin extends Plugin {
     for (const file of files) {
       const frontmatter = await this.getFrontmatter(file);
       if (!frontmatter) continue;
-      const syncValue = this.coerceBoolean(
-        frontmatter[this.settings.syncKey]
-      );
+      const syncValue = this.coerceBoolean(frontmatter[this.settings.syncKey]);
       if (!syncValue) continue;
       const docId = this.coerceString(frontmatter[this.settings.idKey]);
       if (!docId) continue;

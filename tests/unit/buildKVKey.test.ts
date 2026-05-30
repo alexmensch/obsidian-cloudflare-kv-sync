@@ -46,7 +46,9 @@ describe("buildKVKey", () => {
   });
 
   it("should handle complex collection values", () => {
-    expect(buildKVKey({ id: "abc", collection: "blog-posts" })).toBe("blog-posts/abc");
+    expect(buildKVKey({ id: "abc", collection: "blog-posts" })).toBe(
+      "blog-posts/abc"
+    );
   });
 
   it("should handle id with slashes", () => {
@@ -54,7 +56,9 @@ describe("buildKVKey", () => {
   });
 
   it("should handle collection and id with special characters", () => {
-    expect(buildKVKey({ id: "doc-123", collection: "tutorials" })).toBe("tutorials/doc-123");
+    expect(buildKVKey({ id: "doc-123", collection: "tutorials" })).toBe(
+      "tutorials/doc-123"
+    );
   });
 
   it("should use custom idKey from settings", async () => {

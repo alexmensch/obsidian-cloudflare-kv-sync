@@ -16,7 +16,10 @@ describe("loadCache", () => {
     });
     const plugin = await createTestPlugin({ cacheContent });
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     expect(syncedFiles.get("path/to/file.md")).toBe("collection/doc-id");
   });
 
@@ -26,14 +29,19 @@ describe("loadCache", () => {
 
     await (plugin as unknown as { loadCache: () => Promise<void> }).loadCache();
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     expect(syncedFiles.size).toBe(0);
   });
 
   it("should throw error for invalid JSON in cache file", async () => {
     const plugin = await createTestPlugin();
     (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
-    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue("not valid json");
+    (plugin.app.vault.adapter.read as jest.Mock).mockResolvedValue(
+      "not valid json"
+    );
 
     await expect(
       (plugin as unknown as { loadCache: () => Promise<void> }).loadCache()
@@ -74,7 +82,10 @@ describe("loadCache", () => {
     });
     const plugin = await createTestPlugin({ cacheContent });
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     expect(syncedFiles.size).toBe(3);
     expect(syncedFiles.get("file1.md")).toBe("key1");
     expect(syncedFiles.get("file2.md")).toBe("collection/key2");
@@ -87,7 +98,10 @@ describe("loadCache", () => {
     });
     const plugin = await createTestPlugin({ cacheContent });
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     expect(syncedFiles.size).toBe(0);
   });
 
@@ -117,7 +131,10 @@ describe("saveCache", () => {
     const plugin = await createTestPlugin();
 
     // Add a synced file
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     syncedFiles.set("test.md", "test-key");
 
     await (plugin as unknown as { saveCache: () => Promise<void> }).saveCache();
@@ -131,12 +148,16 @@ describe("saveCache", () => {
   it("should save cache with correct JSON format", async () => {
     const plugin = await createTestPlugin();
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     syncedFiles.set("file.md", "key");
 
     await (plugin as unknown as { saveCache: () => Promise<void> }).saveCache();
 
-    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock.calls[0];
+    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0];
     const savedJson = JSON.parse(writeCall[1]);
     expect(savedJson).toEqual({
       syncedFiles: {
@@ -169,7 +190,8 @@ describe("saveCache", () => {
 
     await (plugin as unknown as { saveCache: () => Promise<void> }).saveCache();
 
-    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock.calls[0];
+    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0];
     const savedJson = JSON.parse(writeCall[1]);
     expect(savedJson.syncedFiles).toEqual({});
   });
@@ -177,13 +199,17 @@ describe("saveCache", () => {
   it("should convert Map to object when saving", async () => {
     const plugin = await createTestPlugin();
 
-    const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+    const syncedFiles = getPrivateProperty<Map<string, string>>(
+      plugin,
+      "syncedFiles"
+    );
     syncedFiles.set("a.md", "key-a");
     syncedFiles.set("b.md", "key-b");
 
     await (plugin as unknown as { saveCache: () => Promise<void> }).saveCache();
 
-    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock.calls[0];
+    const writeCall = (plugin.app.vault.adapter.write as jest.Mock).mock
+      .calls[0];
     const savedJson = JSON.parse(writeCall[1]);
     expect(savedJson.syncedFiles["a.md"]).toBe("key-a");
     expect(savedJson.syncedFiles["b.md"]).toBe("key-b");

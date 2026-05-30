@@ -53,10 +53,7 @@ describe("Auto-assign ID", () => {
       .mockReturnValueOnce({ kv_sync: true, id: "generated-uuid" });
 
     (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-      async (
-        _file: TFile,
-        fn: (fm: Record<string, unknown>) => void
-      ) => {
+      async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
         const fm: Record<string, unknown> = { kv_sync: true };
         fn(fm);
         expect(fm[plugin.settings.idKey]).toBeDefined();
@@ -87,9 +84,7 @@ describe("Auto-assign ID", () => {
 
     const result = await syncFile(file);
 
-    expect(
-      plugin.app.fileManager.processFrontMatter
-    ).not.toHaveBeenCalled();
+    expect(plugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
     expect(result.sync?.success).toBe(true);
     expect(requestUrl).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -239,11 +234,10 @@ describe("Auto-assign ID", () => {
 
     it("should call processFrontMatter with the file", async () => {
       const file = createMockTFile("test.md");
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-        async (
-          _file: TFile,
-          fn: (fm: Record<string, unknown>) => void
-        ) => {
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockImplementation(
+        async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
           fn({});
         }
       );
@@ -258,11 +252,10 @@ describe("Auto-assign ID", () => {
 
     it("should return the generated ID", async () => {
       const file = createMockTFile("test.md");
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-        async (
-          _file: TFile,
-          fn: (fm: Record<string, unknown>) => void
-        ) => {
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockImplementation(
+        async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
           fn({});
         }
       );
@@ -280,11 +273,10 @@ describe("Auto-assign ID", () => {
       const file = createMockTFile("test.md");
 
       let capturedFm: Record<string, unknown> = {};
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockImplementation(
-        async (
-          _file: TFile,
-          fn: (fm: Record<string, unknown>) => void
-        ) => {
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockImplementation(
+        async (_file: TFile, fn: (fm: Record<string, unknown>) => void) => {
           const fm: Record<string, unknown> = {};
           fn(fm);
           capturedFm = fm;

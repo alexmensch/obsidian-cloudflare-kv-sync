@@ -16,7 +16,11 @@ type KVRequestResult = { success: true } | { success: false; error: string };
 
 describe("kvRequest", () => {
   let plugin: CloudflareKVPlugin;
-  let kvRequest: (key: string, method: "PUT" | "DELETE", body?: string) => Promise<KVRequestResult>;
+  let kvRequest: (
+    key: string,
+    method: "PUT" | "DELETE",
+    body?: string
+  ) => Promise<KVRequestResult>;
 
   beforeEach(async () => {
     plugin = await createTestPlugin();
@@ -55,9 +59,7 @@ describe("kvRequest", () => {
 
     it("should return error for API error response", async () => {
       (requestUrl as jest.Mock).mockResolvedValue(
-        mockErrorResponse([
-          { code: 10000, message: "Invalid API key" }
-        ])
+        mockErrorResponse([{ code: 10000, message: "Invalid API key" }])
       );
 
       const result = await kvRequest("test-key", "PUT", "content");
@@ -121,9 +123,7 @@ describe("kvRequest", () => {
 
     it("should return error for DELETE API error", async () => {
       (requestUrl as jest.Mock).mockResolvedValue(
-        mockErrorResponse([
-          { code: 10009, message: "Key not found" }
-        ])
+        mockErrorResponse([{ code: 10009, message: "Key not found" }])
       );
 
       const result = await kvRequest("nonexistent-key", "DELETE");
@@ -186,7 +186,10 @@ describe("kvRequest", () => {
 
 describe("uploadToKV", () => {
   let plugin: CloudflareKVPlugin;
-  let uploadToKV: (key: string, value: string) => Promise<{ action: "create"; success: boolean; error?: string }>;
+  let uploadToKV: (
+    key: string,
+    value: string
+  ) => Promise<{ action: "create"; success: boolean; error?: string }>;
 
   beforeEach(async () => {
     plugin = await createTestPlugin();
@@ -216,7 +219,9 @@ describe("uploadToKV", () => {
 
 describe("deleteFromKV", () => {
   let plugin: CloudflareKVPlugin;
-  let deleteFromKV: (key: string) => Promise<{ action: "delete"; success: boolean; error?: string }>;
+  let deleteFromKV: (
+    key: string
+  ) => Promise<{ action: "delete"; success: boolean; error?: string }>;
 
   beforeEach(async () => {
     plugin = await createTestPlugin();

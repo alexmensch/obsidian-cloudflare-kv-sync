@@ -15,7 +15,11 @@ const GENERATED_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 type SyncResult =
   | { skipped: true; error?: string; sync?: undefined }
-  | { skipped: false; error?: string; sync?: { action: string; success: boolean; error?: string } };
+  | {
+      skipped: false;
+      error?: string;
+      sync?: { action: string; success: boolean; error?: string };
+    };
 
 describe("syncFile", () => {
   let plugin: CloudflareKVPlugin;
@@ -49,7 +53,10 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       const content = "---\nid: test-id\nkv_sync: false\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ id: "test-id", kv_sync: false });
+      (parseYaml as jest.Mock).mockReturnValue({
+        id: "test-id",
+        kv_sync: false
+      });
 
       const result = await syncFile(file);
 
@@ -76,12 +83,18 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       (plugin.app.vault.cachedRead as jest.Mock)
         .mockResolvedValueOnce("---\nkv_sync: true\n---\nContent")
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`)
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`);
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        )
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        );
       (parseYaml as jest.Mock)
         .mockReturnValueOnce({ kv_sync: true })
         .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockResolvedValue(undefined);
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -95,12 +108,18 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       (plugin.app.vault.cachedRead as jest.Mock)
         .mockResolvedValueOnce("---\nkv_sync: true\nid: \n---\nContent")
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`)
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`);
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        )
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        );
       (parseYaml as jest.Mock)
         .mockReturnValueOnce({ kv_sync: true, id: "" })
         .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockResolvedValue(undefined);
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -115,7 +134,10 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       const content = "---\nkv_sync: true\nid: test-id\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -131,15 +153,23 @@ describe("syncFile", () => {
       );
 
       // Check cache was updated
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       expect(syncedFiles.get(file.path)).toBe("test-id");
     });
 
     it("should upload with collection prefix when specified", async () => {
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: true\nid: test-id\ncollection: posts\n---\nContent";
+      const content =
+        "---\nkv_sync: true\nid: test-id\ncollection: posts\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id", collection: "posts" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id",
+        collection: "posts"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -151,7 +181,10 @@ describe("syncFile", () => {
         })
       );
 
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       expect(syncedFiles.get(file.path)).toBe("posts/test-id");
     });
   });
@@ -159,13 +192,19 @@ describe("syncFile", () => {
   describe("Update existing file", () => {
     it("should upload updated content when file was previously synced", async () => {
       // Pre-populate cache
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "test-id");
 
       const file = createMockTFile("test.md");
       const content = "---\nkv_sync: true\nid: test-id\n---\nUpdated content";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -184,13 +223,21 @@ describe("syncFile", () => {
   describe("Collection changed", () => {
     it("should delete old key and upload with new collection", async () => {
       // Pre-populate cache with old collection
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "posts/test-id");
 
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: true\nid: test-id\ncollection: tutorials\n---\nContent";
+      const content =
+        "---\nkv_sync: true\nid: test-id\ncollection: tutorials\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id", collection: "tutorials" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id",
+        collection: "tutorials"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -223,7 +270,10 @@ describe("syncFile", () => {
   describe("ID changed", () => {
     it("should delete old key and upload with new ID", async () => {
       // Pre-populate cache with old ID
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "old-id");
 
       const file = createMockTFile("test.md");
@@ -262,13 +312,19 @@ describe("syncFile", () => {
   describe("Unmark for sync", () => {
     it("should delete from KV when file was synced but now has kv_sync: false", async () => {
       // Pre-populate cache
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "test-id");
 
       const file = createMockTFile("test.md");
       const content = "---\nkv_sync: false\nid: test-id\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: false, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: false,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -290,7 +346,10 @@ describe("syncFile", () => {
   describe("Remove frontmatter", () => {
     it("should delete from KV when previously synced file loses frontmatter", async () => {
       // Pre-populate cache
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "test-id");
 
       const file = createMockTFile("test.md");
@@ -309,19 +368,28 @@ describe("syncFile", () => {
 
     it("should delete old key, assign new ID, and re-sync when previously synced file loses id field", async () => {
       // Pre-populate cache
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "test-id");
 
       const file = createMockTFile("test.md");
       // First read: no id; second read (after assignIdToFile): has new id; third read: file content
       (plugin.app.vault.cachedRead as jest.Mock)
         .mockResolvedValueOnce("---\nkv_sync: true\n---\nContent")
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`)
-        .mockResolvedValueOnce(`---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`);
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        )
+        .mockResolvedValueOnce(
+          `---\nkv_sync: true\nid: ${GENERATED_UUID}\n---\nContent`
+        );
       (parseYaml as jest.Mock)
         .mockReturnValueOnce({ kv_sync: true })
         .mockReturnValueOnce({ kv_sync: true, id: GENERATED_UUID });
-      (plugin.app.fileManager.processFrontMatter as jest.Mock).mockResolvedValue(undefined);
+      (
+        plugin.app.fileManager.processFrontMatter as jest.Mock
+      ).mockResolvedValue(undefined);
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -352,13 +420,21 @@ describe("syncFile", () => {
   describe("Delete old fails", () => {
     it("should return error and not upload when delete of old key fails", async () => {
       // Pre-populate cache with old collection
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       syncedFiles.set("test.md", "posts/test-id");
 
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: true\nid: test-id\ncollection: tutorials\n---\nContent";
+      const content =
+        "---\nkv_sync: true\nid: test-id\ncollection: tutorials\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id", collection: "tutorials" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id",
+        collection: "tutorials"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(
         mockErrorResponse([{ code: 10000, message: "Delete failed" }])
       );
@@ -387,7 +463,10 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       const content = "---\nkv_sync: true\nid: test-id\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: true,
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(
         mockErrorResponse([{ code: 10000, message: "Upload failed" }])
       );
@@ -400,7 +479,10 @@ describe("syncFile", () => {
       expect(result.sync?.error).toContain("Upload failed");
 
       // Cache should not have been updated
-      const syncedFiles = getPrivateProperty<Map<string, string>>(plugin, "syncedFiles");
+      const syncedFiles = getPrivateProperty<Map<string, string>>(
+        plugin,
+        "syncedFiles"
+      );
       expect(syncedFiles.has(file.path)).toBe(false);
     });
   });
@@ -408,9 +490,12 @@ describe("syncFile", () => {
   describe("Edge cases", () => {
     it("should handle file with boolean string 'true' for kv_sync", async () => {
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: \"true\"\nid: test-id\n---\nContent";
+      const content = '---\nkv_sync: "true"\nid: test-id\n---\nContent';
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: "true", id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: "true",
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -420,9 +505,12 @@ describe("syncFile", () => {
 
     it("should handle file with uppercase 'TRUE' for kv_sync", async () => {
       const file = createMockTFile("test.md");
-      const content = "---\nkv_sync: \"TRUE\"\nid: test-id\n---\nContent";
+      const content = '---\nkv_sync: "TRUE"\nid: test-id\n---\nContent';
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ kv_sync: "TRUE", id: "test-id" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        kv_sync: "TRUE",
+        id: "test-id"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);
@@ -437,7 +525,10 @@ describe("syncFile", () => {
       const file = createMockTFile("test.md");
       const content = "---\npublish: true\nslug: my-post\n---\nContent";
       (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
-      (parseYaml as jest.Mock).mockReturnValue({ publish: true, slug: "my-post" });
+      (parseYaml as jest.Mock).mockReturnValue({
+        publish: true,
+        slug: "my-post"
+      });
       (requestUrl as jest.Mock).mockResolvedValue(mockSuccessResponse());
 
       const result = await syncFile(file);

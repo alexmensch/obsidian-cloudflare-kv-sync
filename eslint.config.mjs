@@ -7,7 +7,14 @@ import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default defineConfig([
   {
-    ignores: ["**/main.js", "**esbuild**", "coverage/**", "tests/**", "src/__mocks__/**", "jest.config.cjs"]
+    ignores: [
+      "**/main.js",
+      "**esbuild**",
+      "coverage/**",
+      "tests/**",
+      "src/__mocks__/**",
+      "jest.config.cjs"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -17,14 +17,20 @@ interface PluginTestOptions {
  * Creates a plugin instance for testing with mocked dependencies.
  * This bypasses the constructor requirements and sets up the plugin directly.
  */
-export async function createTestPlugin(options?: PluginTestOptions): Promise<CloudflareKVPlugin> {
+export async function createTestPlugin(
+  options?: PluginTestOptions
+): Promise<CloudflareKVPlugin> {
   const settings = options?.settings || DEFAULT_TEST_SETTINGS;
-  const secrets = options?.secrets || new Map([["cloudflare-api-token", "test-token"]]);
-  const cacheContent = options?.cacheContent || JSON.stringify(DEFAULT_TEST_CACHE);
+  const secrets =
+    options?.secrets || new Map([["cloudflare-api-token", "test-token"]]);
+  const cacheContent =
+    options?.cacheContent || JSON.stringify(DEFAULT_TEST_CACHE);
   const files = options?.files || new Map();
 
   // Create plugin instance without calling constructor
-  const plugin = Object.create(CloudflareKVPlugin.prototype) as CloudflareKVPlugin;
+  const plugin = Object.create(
+    CloudflareKVPlugin.prototype
+  ) as CloudflareKVPlugin;
 
   // Setup mock app
   const app = createMockApp({
@@ -38,9 +44,12 @@ export async function createTestPlugin(options?: PluginTestOptions): Promise<Clo
   (plugin as unknown as { manifest: { dir: string } }).manifest = {
     dir: ".obsidian/plugins/cloudflare-kv-sync"
   };
-  (plugin as unknown as { syncTimeouts: Map<string, number> }).syncTimeouts = new Map();
-  (plugin as unknown as { syncedFiles: Map<string, string> }).syncedFiles = new Map();
-  (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully = false;
+  (plugin as unknown as { syncTimeouts: Map<string, number> }).syncTimeouts =
+    new Map();
+  (plugin as unknown as { syncedFiles: Map<string, string> }).syncedFiles =
+    new Map();
+  (plugin as unknown as { loadedSuccesfully: boolean }).loadedSuccesfully =
+    false;
 
   // Mock loadData and saveData
   plugin.loadData = jest.fn().mockResolvedValue(settings);
@@ -51,7 +60,9 @@ export async function createTestPlugin(options?: PluginTestOptions): Promise<Clo
   plugin.registerEvent = jest.fn();
 
   // Load settings and cache
-  await (plugin as unknown as { loadSettings: () => Promise<void> }).loadSettings();
+  await (
+    plugin as unknown as { loadSettings: () => Promise<void> }
+  ).loadSettings();
   await (plugin as unknown as { loadCache: () => Promise<void> }).loadCache();
 
   return plugin;
@@ -61,7 +72,10 @@ export async function createTestPlugin(options?: PluginTestOptions): Promise<Clo
  * Gets a private method from the plugin for testing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getPrivateMethod<T extends (...args: any[]) => any>(plugin: CloudflareKVPlugin, methodName: string): T {
+export function getPrivateMethod<T extends (...args: any[]) => any>(
+  plugin: CloudflareKVPlugin,
+  methodName: string
+): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const method = (plugin as unknown as Record<string, any>)[methodName];
   return method.bind(plugin) as T;
@@ -70,13 +84,20 @@ export function getPrivateMethod<T extends (...args: any[]) => any>(plugin: Clou
 /**
  * Gets a private property from the plugin for testing
  */
-export function getPrivateProperty<T>(plugin: CloudflareKVPlugin, propertyName: string): T {
+export function getPrivateProperty<T>(
+  plugin: CloudflareKVPlugin,
+  propertyName: string
+): T {
   return (plugin as unknown as Record<string, T>)[propertyName];
 }
 
 /**
  * Sets a private property on the plugin for testing
  */
-export function setPrivateProperty<T>(plugin: CloudflareKVPlugin, propertyName: string, value: T): void {
+export function setPrivateProperty<T>(
+  plugin: CloudflareKVPlugin,
+  propertyName: string,
+  value: T
+): void {
   (plugin as unknown as Record<string, T>)[propertyName] = value;
 }

@@ -41,9 +41,9 @@ export function createMockVault(
     return files.get(file.path) || "";
   });
 
-  vault.getMarkdownFiles = jest.fn().mockReturnValue(
-    Array.from(files.keys()).map((path) => new TFile(path))
-  );
+  vault.getMarkdownFiles = jest
+    .fn()
+    .mockReturnValue(Array.from(files.keys()).map((path) => new TFile(path)));
 
   vault.getAbstractFileByPath = jest.fn().mockImplementation((path: string) => {
     if (files.has(path)) {
@@ -79,7 +79,9 @@ export function createMockApp(options?: {
     if (options?.cacheContent !== undefined) {
       return options.cacheContent;
     }
-    const error = new Error(`ENOENT: no such file or directory, open '${path}'`);
+    const error = new Error(
+      `ENOENT: no such file or directory, open '${path}'`
+    );
     throw error;
   });
   adapter.write = jest.fn().mockResolvedValue(undefined);
@@ -131,7 +133,9 @@ export function createMockApp(options?: {
           }
         }
         fmLines.push("---");
-        const newContent = body ? fmLines.join("\n") + "\n" + body : fmLines.join("\n");
+        const newContent = body
+          ? fmLines.join("\n") + "\n" + body
+          : fmLines.join("\n");
         files.set(file.path, newContent);
       }
     );
@@ -149,9 +153,7 @@ export function createMockNotice(): jest.Mock {
 /**
  * Configures the requestUrl mock for testing
  */
-export function mockRequestUrl(
-  response: { text: string } | Error
-): jest.Mock {
+export function mockRequestUrl(response: { text: string } | Error): jest.Mock {
   const mock = requestUrl as jest.Mock;
   if (response instanceof Error) {
     mock.mockRejectedValue(response);
@@ -164,9 +166,7 @@ export function mockRequestUrl(
 /**
  * Configures parseYaml mock for testing
  */
-export function mockParseYaml(
-  result: unknown | Error
-): jest.Mock {
+export function mockParseYaml(result: unknown | Error): jest.Mock {
   const mock = parseYaml as jest.Mock;
   if (result instanceof Error) {
     mock.mockImplementation(() => {

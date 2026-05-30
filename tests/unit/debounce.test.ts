@@ -29,7 +29,10 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file);
 
@@ -48,7 +51,10 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     // Rapid edits
     debouncedFileSync(file);
@@ -77,18 +83,23 @@ describe("debouncedFileSync", () => {
     const content1 = "---\nkv_sync: true\nid: id1\n---\nContent 1";
     const content2 = "---\nkv_sync: true\nid: id2\n---\nContent 2";
 
-    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(async (file: TFile) => {
-      if (file.path === "file1.md") return content1;
-      if (file.path === "file2.md") return content2;
-      return "";
-    });
+    (plugin.app.vault.cachedRead as jest.Mock).mockImplementation(
+      async (file: TFile) => {
+        if (file.path === "file1.md") return content1;
+        if (file.path === "file2.md") return content2;
+        return "";
+      }
+    );
     (parseYaml as jest.Mock).mockImplementation((yaml: string) => {
       if (yaml.includes("id1")) return { kv_sync: true, id: "id1" };
       if (yaml.includes("id2")) return { kv_sync: true, id: "id2" };
       return {};
     });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file1);
     debouncedFileSync(file2);
@@ -106,8 +117,14 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
-    const syncTimeouts = getPrivateProperty<Map<string, NodeJS.Timeout>>(plugin, "syncTimeouts");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
+    const syncTimeouts = getPrivateProperty<Map<string, NodeJS.Timeout>>(
+      plugin,
+      "syncTimeouts"
+    );
 
     debouncedFileSync(file);
 
@@ -130,7 +147,10 @@ describe("debouncedFileSync", () => {
     // Mock error log adapter calls
     (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(false);
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file);
 
@@ -152,7 +172,10 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file);
 
@@ -174,7 +197,10 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file);
 
@@ -190,7 +216,10 @@ describe("debouncedFileSync", () => {
     (plugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
     (parseYaml as jest.Mock).mockReturnValue({ kv_sync: true, id: "test-id" });
 
-    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(plugin, "debouncedFileSync");
+    const debouncedFileSync = getPrivateMethod<(file: TFile) => void>(
+      plugin,
+      "debouncedFileSync"
+    );
 
     debouncedFileSync(file);
 
