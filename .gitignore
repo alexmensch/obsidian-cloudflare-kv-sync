@@ -17,6 +17,9 @@ coverage/
 .DS_Store
 .DS_Store?
 
+# Claude Code session worktrees
+.claude/worktrees/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
